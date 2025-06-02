@@ -268,6 +268,31 @@ ephy_downloads_paintable_new (GtkWidget *widget)
 }
 
 static void
+animation_after_done_cb (double                  value,
+                         EphyDownloadsPaintable *self)
+{
+  if (gtk_widget_get_opacity (self->widget) == 0) {
+    AdwAnimationTarget *target;
+
+    g_return_if_fail (EPHY_IS_DOWNLOADS_PAINTABLE (self));
+
+    gtk_image_set_from_icon_name (GTK_IMAGE (self->widget), "view-sidebar-end-symbolic");
+
+    target = adw_property_animation_target_new (G_OBJECT (self->widget), "opacity");
+    self->done_animation = adw_timed_animation_new (self->widget, 0, 1, 200, target);
+
+    g_signal_connect_swapped (self->done_animation, "done",
+                              G_CALLBACK (animation_after_done_cb), self);
+
+    adw_timed_animation_set_easing (ADW_TIMED_ANIMATION (self->done_animation),
+                                    ADW_EASE_IN_OUT_QUAD);
+    adw_animation_play (self->done_animation);
+  } else {
+    g_clear_object (&self->done_animation);
+  }
+}
+
+static void
 animate_done_cb (double                  value,
                  EphyDownloadsPaintable *self)
 {
@@ -293,7 +318,19 @@ animation_done_done_cb (EphyDownloadsPaintable *self)
 
     self->timeout_id = g_timeout_add_once (delay, (GSourceOnceFunc)animation_timeout_cb, self);
   } else {
+    AdwAnimationTarget *target;
+
     g_clear_object (&self->done_animation);
+
+    target = adw_property_animation_target_new (G_OBJECT (self->widget), "opacity");
+    self->done_animation = adw_timed_animation_new (self->widget, 1, 0, 200, target);
+
+    g_signal_connect_swapped (self->done_animation, "done",
+                              G_CALLBACK (animation_after_done_cb), self);
+
+    adw_timed_animation_set_easing (ADW_TIMED_ANIMATION (self->done_animation),
+                                    ADW_EASE_IN_OUT_QUAD);
+    adw_animation_play (self->done_animation);
   }
 }
 

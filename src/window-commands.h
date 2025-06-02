@@ -140,7 +140,10 @@ void window_cmd_find_next                       (GSimpleAction *action,
 void window_cmd_bookmark_page                   (GSimpleAction *action,
                                                  GVariant      *parameter,
                                                  gpointer       user_data);
-void window_cmd_bookmarks                       (GSimpleAction *action,
+void window_cmd_show_bookmarks                  (GSimpleAction *action,
+                                                 GVariant      *parameter,
+                                                 gpointer       user_data);
+void window_cmd_toggle_sidebar                  (GSimpleAction *action,
                                                  GVariant      *parameter,
                                                  gpointer       user_data);
 void window_cmd_add_search_engine               (GSimpleAction *action,

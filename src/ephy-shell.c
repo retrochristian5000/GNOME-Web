@@ -1436,31 +1436,6 @@ window_destroyed (GtkWidget  *widget,
 }
 
 /**
- * ephy_shell_get_history_dialog:
- *
- * Return value: (transfer none):
- **/
-GtkWidget *
-ephy_shell_get_history_dialog (EphyShell *shell)
-{
-  EphyEmbedShell *embed_shell;
-  EphyHistoryService *service;
-
-  embed_shell = ephy_embed_shell_get_default ();
-
-  if (!shell->history_dialog) {
-    service = ephy_embed_shell_get_global_history_service (embed_shell);
-    shell->history_dialog = ephy_history_dialog_new (service);
-    g_signal_connect (shell->history_dialog,
-                      "closed",
-                      G_CALLBACK (window_destroyed),
-                      &shell->history_dialog);
-  }
-
-  return shell->history_dialog;
-}
-
-/**
  * ephy_shell_get_firefox_sync_dialog:
  *
  * Return value: (transfer none):

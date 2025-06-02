@@ -70,6 +70,7 @@
 #include "ephy-session.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
+#include "ephy-sidebar.h"
 #include "ephy-string.h"
 #include "ephy-tab-view.h"
 #include "ephy-view-source-handler.h"
@@ -1063,19 +1064,13 @@ window_cmd_show_history (GSimpleAction *action,
                          GVariant      *parameter,
                          gpointer       user_data)
 {
-  EphyHistoryDialog *dialog;
+  EphyWindow *window = EPHY_WINDOW (user_data);
+  EphySidebar *sidebar = EPHY_SIDEBAR (ephy_window_get_sidebar (window));
 
-  user_data = EPHY_WINDOW (user_data);
+  if (!ephy_window_get_show_sidebar (window))
+    ephy_window_toggle_sidebar (window);
 
-  dialog = EPHY_HISTORY_DIALOG (ephy_shell_get_history_dialog (ephy_shell_get_default ()));
-  if (ephy_history_dialog_get_parent_window (dialog) != user_data &&
-      ephy_history_dialog_get_parent_window (dialog)) {
-    adw_dialog_force_close (ADW_DIALOG (dialog));
-    dialog = EPHY_HISTORY_DIALOG (ephy_shell_get_history_dialog (ephy_shell_get_default ()));
-  }
-
-  adw_dialog_present (ADW_DIALOG (dialog), user_data);
-  ephy_history_dialog_set_parent_window (dialog, user_data);
+  ephy_sidebar_set_visible_child_name (sidebar, "history");
 }
 
 void
@@ -2872,13 +2867,27 @@ window_cmd_bookmark_page (GSimpleAction *action,
 }
 
 void
-window_cmd_bookmarks (GSimpleAction *action,
-                      GVariant      *parameter,
-                      gpointer       user_data)
+window_cmd_show_bookmarks (GSimpleAction *action,
+                           GVariant      *parameter,
+                           gpointer       user_data)
+{
+  EphyWindow *window = EPHY_WINDOW (user_data);
+  EphySidebar *sidebar = EPHY_SIDEBAR (ephy_window_get_sidebar (window));
+
+  if (!ephy_window_get_show_sidebar (window))
+    ephy_window_toggle_sidebar (window);
+
+  ephy_sidebar_set_visible_child_name (sidebar, "bookmarks");
+}
+
+void
+window_cmd_toggle_sidebar (GSimpleAction *action,
+                           GVariant      *parameter,
+                           gpointer       user_data)
 {
   EphyWindow *window = EPHY_WINDOW (user_data);
 
-  ephy_window_toggle_bookmarks (window);
+  ephy_window_toggle_sidebar (window);
 }
 
 typedef struct  {
@@ -3006,12 +3015,12 @@ window_cmd_show_downloads (GSimpleAction *action,
                            gpointer       user_data)
 {
   EphyWindow *window = EPHY_WINDOW (user_data);
-  EphyHeaderBar *header_bar;
-  EphyActionBarEnd *action_bar_end;
+  EphySidebar *sidebar = EPHY_SIDEBAR (ephy_window_get_sidebar (window));
 
-  header_bar = EPHY_HEADER_BAR (ephy_window_get_header_bar (window));
-  action_bar_end = EPHY_ACTION_BAR_END (ephy_header_bar_get_action_bar_end (header_bar));
-  ephy_action_bar_end_show_downloads (action_bar_end);
+  if (!ephy_window_get_show_sidebar (window))
+    ephy_window_toggle_sidebar (window);
+
+  ephy_sidebar_set_visible_child_name (sidebar, "downloads");
 }
 
 void

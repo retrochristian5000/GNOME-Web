@@ -20,18 +20,20 @@
 
 #pragma once
 
-#include <adwaita.h>
-
+#include "ephy-data-view.h"
 #include "ephy-window.h"
 
 G_BEGIN_DECLS
 
 #define EPHY_TYPE_PASSWORDS_VIEW (ephy_passwords_view_get_type ())
 
-G_DECLARE_FINAL_TYPE (EphyPasswordsView, ephy_passwords_view, EPHY, PASSWORDS_VIEW, AdwDialog)
+G_DECLARE_FINAL_TYPE (EphyPasswordsView, ephy_passwords_view, EPHY, PASSWORDS_VIEW, EphyDataView)
 
 void
 ephy_passwords_show (EphyWindow *window);
+
+void
+ephy_passwords_view_reset_state (EphyPasswordsView *self);
 
 G_END_DECLS
 

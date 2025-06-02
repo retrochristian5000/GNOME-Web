@@ -41,21 +41,17 @@ struct _EphyActionBar {
   AdwBin parent_instance;
 
   GtkWidget *toolbar;
-  GtkWidget *menu_button;
   AdwTabButton *tab_button;
-  GtkWidget *bookmarks_button;
+  GtkWidget *sidebar_button;
+  GtkWidget *sidebar_icon;
   GtkWidget *navigation_back;
   GtkWidget *navigation_forward;
   GCancellable *cancellable;
   GtkWidget *history_menu;
   GtkWidget *site_menu_button;
 
-  /* Downloads */
-  GtkWidget *downloads_button;
-  GtkWidget *downloads_popover;
-  GtkWidget *downloads_icon;
   GdkPaintable *downloads_paintable;
-  guint downloads_button_attention_timeout_id;
+  guint sidebar_button_attention_timeout_id;
 };
 
 G_DEFINE_FINAL_TYPE (EphyActionBar, ephy_action_bar, ADW_TYPE_BIN)
@@ -427,19 +423,19 @@ middle_click_released_cb (GtkGesture    *gesture,
 static void
 add_attention_timeout_cb (EphyActionBar *self)
 {
-  gtk_widget_remove_css_class (self->downloads_icon, "accent");
-  self->downloads_button_attention_timeout_id = 0;
+  gtk_widget_remove_css_class (self->sidebar_icon, "accent");
+  self->sidebar_button_attention_timeout_id = 0;
 }
 
 static void
 add_attention (EphyActionBar *self)
 {
-  g_clear_handle_id (&self->downloads_button_attention_timeout_id, g_source_remove);
+  g_clear_handle_id (&self->sidebar_button_attention_timeout_id, g_source_remove);
 
-  gtk_widget_add_css_class (self->downloads_icon, "accent");
-  self->downloads_button_attention_timeout_id = g_timeout_add_once (NEEDS_ATTENTION_ANIMATION_TIMEOUT,
-                                                                    (GSourceOnceFunc)add_attention_timeout_cb,
-                                                                    self);
+  gtk_widget_add_css_class (self->sidebar_icon, "accent");
+  self->sidebar_button_attention_timeout_id = g_timeout_add_once (NEEDS_ATTENTION_ANIMATION_TIMEOUT,
+                                                                  (GSourceOnceFunc)add_attention_timeout_cb,
+                                                                  self);
 }
 
 static void
@@ -447,16 +443,9 @@ download_added_cb (EphyDownloadsManager *manager,
                    EphyDownload         *download,
                    EphyActionBar        *action_bar)
 {
-  if (!action_bar->downloads_popover) {
-    action_bar->downloads_popover = ephy_downloads_popover_new ();
-    gtk_menu_button_set_popover (GTK_MENU_BUTTON (action_bar->downloads_button),
-                                 action_bar->downloads_popover);
-  }
-
+  gtk_image_set_from_paintable (GTK_IMAGE (action_bar->sidebar_icon),
+                                action_bar->downloads_paintable);
   add_attention (action_bar);
-
-  if (!gtk_widget_get_parent (action_bar->downloads_button))
-    gtk_box_append (GTK_BOX (action_bar->toolbar), action_bar->downloads_button);
 }
 
 static void
@@ -472,8 +461,8 @@ download_removed_cb (EphyDownloadsManager *manager,
                      EphyDownload         *download,
                      EphyActionBar        *action_bar)
 {
-  if (!ephy_downloads_manager_get_downloads (manager))
-    gtk_widget_unparent (action_bar->downloads_button);
+  if (!ephy_downloads_manager_has_active_downloads (manager))
+    gtk_image_set_from_icon_name (GTK_IMAGE (action_bar->sidebar_icon), "view-sidebar-end-symbolic");
 }
 
 static void
@@ -486,14 +475,6 @@ downloads_estimated_progress_cb (EphyDownloadsManager *manager,
 }
 
 static void
-show_downloads_cb (EphyDownloadsManager *manager,
-                   EphyActionBar        *action_bar)
-{
-  if (gtk_widget_get_mapped (GTK_WIDGET (action_bar)))
-    gtk_menu_button_popup (GTK_MENU_BUTTON (action_bar->downloads_button));
-}
-
-static void
 ephy_action_bar_dispose (GObject *object)
 {
   EphyActionBar *action_bar = EPHY_ACTION_BAR (object);
@@ -503,7 +484,7 @@ ephy_action_bar_dispose (GObject *object)
   g_cancellable_cancel (action_bar->cancellable);
   g_clear_object (&action_bar->cancellable);
 
-  g_clear_handle_id (&action_bar->downloads_button_attention_timeout_id, g_source_remove);
+  g_clear_handle_id (&action_bar->sidebar_button_attention_timeout_id, g_source_remove);
 
   G_OBJECT_CLASS (ephy_action_bar_parent_class)->dispose (object);
 }
@@ -540,11 +521,9 @@ ephy_action_bar_class_init (EphyActionBarClass *klass)
   gtk_widget_class_bind_template_child (widget_class, EphyActionBar, tab_button);
   gtk_widget_class_bind_template_child (widget_class, EphyActionBar, navigation_back);
   gtk_widget_class_bind_template_child (widget_class, EphyActionBar, navigation_forward);
-  gtk_widget_class_bind_template_child (widget_class, EphyActionBar, bookmarks_button);
-  gtk_widget_class_bind_template_child (widget_class, EphyActionBar, menu_button);
+  gtk_widget_class_bind_template_child (widget_class, EphyActionBar, sidebar_button);
+  gtk_widget_class_bind_template_child (widget_class, EphyActionBar, sidebar_icon);
   gtk_widget_class_bind_template_child (widget_class, EphyActionBar, site_menu_button);
-  gtk_widget_class_bind_template_child (widget_class, EphyActionBar, downloads_button);
-  gtk_widget_class_bind_template_child (widget_class, EphyActionBar, downloads_icon);
 
   gtk_widget_class_bind_template_callback (widget_class,
                                            right_click_pressed_cb);
@@ -569,25 +548,14 @@ ephy_action_bar_init (EphyActionBar *action_bar)
   mode = ephy_embed_shell_get_mode (embed_shell);
   gtk_widget_set_visible (GTK_WIDGET (action_bar->tab_button),
                           mode != EPHY_EMBED_SHELL_MODE_APPLICATION);
-  gtk_widget_set_visible (GTK_WIDGET (action_bar->bookmarks_button),
-                          mode != EPHY_EMBED_SHELL_MODE_APPLICATION);
   gtk_widget_set_visible (GTK_WIDGET (action_bar->site_menu_button),
                           mode == EPHY_EMBED_SHELL_MODE_APPLICATION);
 
   /* Downloads */
+  embed_shell = ephy_embed_shell_get_default ();
   downloads_manager = ephy_embed_shell_get_downloads_manager (embed_shell);
 
-  if (ephy_downloads_manager_get_downloads (downloads_manager)) {
-    action_bar->downloads_popover = ephy_downloads_popover_new ();
-    gtk_menu_button_set_popover (GTK_MENU_BUTTON (action_bar->downloads_button), action_bar->downloads_popover);
-  } else {
-    gtk_widget_unparent (action_bar->downloads_button);
-  }
-
-  action_bar->downloads_paintable = ephy_downloads_paintable_new (action_bar->downloads_icon);
-  gtk_image_set_from_paintable (GTK_IMAGE (action_bar->downloads_icon),
-                                action_bar->downloads_paintable);
-
+  action_bar->downloads_paintable = ephy_downloads_paintable_new (action_bar->sidebar_icon);
 
   g_signal_connect_object (downloads_manager, "download-added",
                            G_CALLBACK (download_added_cb),
@@ -600,9 +568,6 @@ ephy_action_bar_init (EphyActionBar *action_bar)
                            object, G_CONNECT_DEFAULT);
   g_signal_connect_object (downloads_manager, "estimated-progress-changed",
                            G_CALLBACK (downloads_estimated_progress_cb),
-                           object, G_CONNECT_DEFAULT);
-  g_signal_connect_object (downloads_manager, "show-downloads",
-                           G_CALLBACK (show_downloads_cb),
                            object, G_CONNECT_DEFAULT);
 }
 

@@ -104,7 +104,6 @@ EphyOpenTabsManager     *ephy_shell_get_open_tabs_manager   (EphyShell        *s
 EphyExtensionStorageManager *ephy_shell_get_extension_storage_manager (EphyShell *shell);
 EphySyncService         *ephy_shell_get_sync_service        (EphyShell        *shell);
 
-GtkWidget               *ephy_shell_get_history_dialog      (EphyShell        *shell);
 GtkWidget               *ephy_shell_get_firefox_sync_dialog (EphyShell        *shell);
 GObject                 *ephy_shell_get_prefs_dialog        (EphyShell        *shell);
 

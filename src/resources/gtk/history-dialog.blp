@@ -1,67 +1,42 @@
 using Gtk 4.0;
 using Adw 1;
 
-template $EphyHistoryDialog: Adw.Dialog {
-  content-width: 640;
-  content-height: 580;
-  title: _("History");
-
+template $EphyHistoryDialog: Adw.Bin {
   Adw.ToolbarView {
     [top]
-    Stack header_bars_stack {
-      transition-type: crossfade;
+    Adw.HeaderBar {
+      show-title: false;
 
-      Adw.HeaderBar window_header_bar {
-        [start]
-        Button clear_button {
-          Adw.ButtonContent {
-            label: _("_Clear");
-            use-underline: true;
-            icon-name: "user-trash-symbolic";
-          }
-
-          clicked => $on_clear_button_clicked();
-        }
-
-        [end]
-        Button selection_button {
-          use-underline: true;
-          icon-name: "selection-mode-symbolic";
-          tooltip-text: _("Select Items");
-          clicked => $on_selection_button_clicked();
-        }
-
-        [end]
-        ToggleButton search_button {
-          icon-name: "edit-find-symbolic";
-          tooltip-text: _("Search");
-          active: bind search_bar.search-mode-enabled bidirectional;
-        }
+      [start]
+      ToggleButton search_button {
+        icon-name: "edit-find-symbolic";
+        tooltip-text: _("Search");
+        active: bind search_bar.search-mode-enabled bidirectional;
+        visible: bind $is_not_empty_page(history_presentation_stack.visible-child);
       }
 
-      Adw.HeaderBar selection_header_bar {
-        show-end-title-buttons: false;
+      [start]
+      ToggleButton selection_button {
+        use-underline: true;
+        icon-name: "document-edit-symbolic";
+        tooltip-text: _("Edit");
+        visible: bind $is_not_empty_page(history_presentation_stack.visible-child);
+        toggled => $on_selection_button_toggled();
+      }
 
-        [start]
-        Button select_all_button {
-          label: _("Select _All");
-          use-underline: true;
-          clicked => $on_select_all_button_clicked();
-        }
+      [end]
+      Button close_button {
+        icon-name: "view-sidebar-end-symbolic";
+        tooltip-text: _("Close");
+        action-name: "win.sidebar";
+      }
 
-        [end]
-        Button selection_cancel_button {
-          use-underline: true;
-          label: _("_Cancel");
-          clicked => $on_selection_cancel_button_clicked();
-        }
-
-        [end]
-        ToggleButton selection_search_button {
-          icon-name: "edit-find-symbolic";
-          tooltip-text: _("Search");
-          active: bind search_bar.search-mode-enabled bidirectional;
-        }
+      [end]
+      MenuButton {
+        icon-name: "view-more-symbolic";
+        tooltip-text: _("Options");
+        menu-model: options_menu;
+        visible: bind $is_not_empty_page(history_presentation_stack.visible-child);
       }
     }
 
@@ -140,6 +115,14 @@ template $EphyHistoryDialog: Adw.Dialog {
       transition-duration: 500;
 
       ActionBar {
+        [start]
+        Button selection_open_button {
+          label: _("_Open");
+          sensitive: false;
+          use-underline: true;
+          clicked => $on_selection_open_button_clicked();
+        }
+
         [end]
         Button selection_delete_button {
           label: _("_Delete");
@@ -151,13 +134,6 @@ template $EphyHistoryDialog: Adw.Dialog {
             "destructive-action",
           ]
         }
-
-        Button selection_open_button {
-          label: _("_Open");
-          sensitive: false;
-          use-underline: true;
-          clicked => $on_selection_open_button_clicked();
-        }
       }
     }
   }
@@ -165,5 +141,17 @@ template $EphyHistoryDialog: Adw.Dialog {
   EventControllerKey {
     key-pressed => $key_pressed_cb() swapped;
     key-released => $key_released_cb() swapped;
+  }
+}
+
+menu options_menu {
+  item {
+    label: _("_Clear");
+    action: "history.clear";
+  }
+
+  item {
+    label: _("Select _All");
+    action: "history.select-all";
   }
 }

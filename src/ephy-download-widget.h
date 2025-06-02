@@ -27,7 +27,7 @@ G_BEGIN_DECLS
 
 #define EPHY_TYPE_DOWNLOAD_WIDGET ephy_download_widget_get_type()
 
-G_DECLARE_FINAL_TYPE (EphyDownloadWidget, ephy_download_widget, EPHY, DOWNLOAD_WIDGET, AdwBin)
+G_DECLARE_FINAL_TYPE (EphyDownloadWidget, ephy_download_widget, EPHY, DOWNLOAD_WIDGET, AdwActionRow)
 
 GtkWidget     *ephy_download_widget_new          (EphyDownload *ephy_download);
 

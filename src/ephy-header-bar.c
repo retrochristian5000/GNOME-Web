@@ -64,15 +64,16 @@ G_DEFINE_FINAL_TYPE (EphyHeaderBar, ephy_header_bar, ADW_TYPE_BIN)
 static void
 sync_chromes_visibility (EphyHeaderBar *header_bar)
 {
+  EphyEmbedShell *embed_shell = ephy_embed_shell_get_default ();
   EphyWindowChrome chrome;
+  gboolean visible;
 
   chrome = ephy_window_get_chrome (header_bar->window);
+  visible = chrome & EPHY_WINDOW_CHROME_HEADER_BAR;
 
-  gtk_widget_set_visible (ephy_action_bar_start_get_navigation_box (header_bar->action_bar_start),
-                          chrome & EPHY_WINDOW_CHROME_HEADER_BAR);
-  ephy_action_bar_end_set_show_bookmarks_button (header_bar->action_bar_end,
-                                                 chrome & EPHY_WINDOW_CHROME_BOOKMARKS);
-  gtk_widget_set_visible (header_bar->page_menu_button, chrome & EPHY_WINDOW_CHROME_MENU);
+  gtk_widget_set_visible (ephy_action_bar_start_get_navigation_box (header_bar->action_bar_start), visible);
+  if (ephy_embed_shell_get_mode (embed_shell) != EPHY_EMBED_SHELL_MODE_APPLICATION)
+    ephy_action_bar_end_set_show_sidebar_button (header_bar->action_bar_end, visible);
 }
 
 static void
@@ -107,7 +108,6 @@ ephy_header_bar_constructed (GObject *object)
 {
   EphyHeaderBar *header_bar = EPHY_HEADER_BAR (object);
   EphyEmbedShell *embed_shell = ephy_embed_shell_get_default ();
-  GtkSizeGroup *downloads_size_group;
 
   G_OBJECT_CLASS (ephy_header_bar_parent_class)->constructed (object);
 
@@ -136,13 +136,7 @@ ephy_header_bar_constructed (GObject *object)
     adw_bin_set_child (ADW_BIN (header_bar->event_box), clamp);
   }
 
-  /* Sync the size of placeholder in EphyActionBarStart with downloads button */
-  downloads_size_group = gtk_size_group_new (GTK_SIZE_GROUP_HORIZONTAL);
-  gtk_size_group_add_widget (downloads_size_group,
-                             ephy_action_bar_start_get_placeholder (header_bar->action_bar_start));
-  gtk_size_group_add_widget (downloads_size_group,
-                             ephy_action_bar_end_get_downloads_revealer (header_bar->action_bar_end));
-  g_object_unref (downloads_size_group);
+  header_bar->page_menu_button = ephy_action_bar_end_get_page_menu_button (EPHY_ACTION_BAR_END (header_bar->action_bar_end));
 
   if (ephy_profile_dir_is_web_application ()) {
     GtkWidget *navigation_box = ephy_action_bar_start_get_navigation_box (header_bar->action_bar_start);

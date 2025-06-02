@@ -1,0 +1,50 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $EphySidebar: Adw.Bin {
+  Box {
+    orientation: vertical;
+
+    Adw.ViewStack stack {
+      Adw.ViewStackPage {
+        title: _("Bookmarks");
+        name: _("bookmarks");
+        icon-name: "ephy-library-symbolic";
+
+        child: $EphyBookmarksDialog bookmarks {};
+      }
+
+      Adw.ViewStackPage {
+        title: _("History");
+        name: _("history");
+        icon-name: "ephy-history-symbolic";
+
+        child: $EphyHistoryDialog history {};
+      }
+
+      Adw.ViewStackPage {
+        title: _("Downloads");
+        name: _("downloads");
+        icon-name: "folder-download-symbolic";
+
+        child: $EphyDownloadsPopover downloads {};
+      }
+
+      Adw.ViewStackPage {
+        title: _("Passwords");
+        name: _("passwords");
+        icon-name: "dialog-password-symbolic";
+
+        child: $EphyPasswordsView passwords {};
+      }
+    }
+
+    Adw.ViewSwitcher {
+      margin-top: 6;
+      margin-bottom: 6;
+      margin-start: 6;
+      margin-end: 6;
+      stack: stack;
+    }
+  }
+}
