@@ -48,6 +48,7 @@
 #include "ephy-settings.h"
 #include "ephy-snapshot-service.h"
 #include "ephy-string.h"
+#include "ephy-tab-session.h"
 #include "ephy-uri-helpers.h"
 #include "ephy-view-source-handler.h"
 #include "ephy-web-app-utils.h"
@@ -80,6 +81,7 @@ struct _EphyWebView {
   EphySecurityLevel security_level;
   EphyWebViewDocumentType document_type;
   EphyWebViewNavigationFlags nav_flags;
+  EphyTabSession *tab_session;
 
   /* Flags */
   guint is_blank : 1;
@@ -155,6 +157,7 @@ enum {
   PROP_READER_MODE,
   PROP_DISPLAY_ADDRESS,
   PROP_ENTERING_READER_MODE,
+  PROP_TAB_SESSION,
   LAST_PROP
 };
 
@@ -362,6 +365,9 @@ ephy_web_view_set_property (GObject      *object,
   switch (prop_id) {
     case PROP_TYPED_ADDRESS:
       ephy_web_view_set_typed_address (EPHY_WEB_VIEW (object), g_value_get_string (value));
+      break;
+    case PROP_TAB_SESSION:
+      EPHY_WEB_VIEW (object)->tab_session = g_value_get_object (value);
       break;
     case PROP_ADDRESS:
     case PROP_DOCUMENT_TYPE:
@@ -3973,6 +3979,7 @@ ephy_web_view_finalize (GObject *object)
   g_free (view->loading_message);
   g_free (view->tls_error_failing_uri);
   g_free (view->pending_snapshot_uri);
+  g_clear_object (&view->tab_session);
 
   G_OBJECT_CLASS (ephy_web_view_parent_class)->finalize (object);
 }
@@ -4280,6 +4287,13 @@ ephy_web_view_class_init (EphyWebViewClass *klass)
                           NULL, NULL,
                           FALSE,
                           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
+  
+  
+  obj_properties[PROP_TAB_SESSION] =
+    g_param_spec_object ("tab-session",
+                         NULL, NULL,
+                         EPHY_TYPE_TAB_SESSION,
+                         G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (gobject_class, LAST_PROP, obj_properties);
 
@@ -4355,14 +4369,21 @@ ephy_web_view_class_init (EphyWebViewClass *klass)
  * Return value: the newly created #EphyWebView widget
  **/
 GtkWidget *
-ephy_web_view_new (void)
+ephy_web_view_new (const char *container_uuid)
 {
   EphyEmbedShell *shell = ephy_embed_shell_get_default ();
+  EphyTabSession *tab_session;
   g_autoptr (WebKitUserContentManager) ucm = webkit_user_content_manager_new ();
+  
+  if (container_uuid)
+    tab_session = ephy_tab_session_new_from_container (container_uuid);
+  else
+    tab_session = ephy_tab_session_new ();
 
   return g_object_new (EPHY_TYPE_WEB_VIEW,
+                       "tab-session", tab_session,
                        "web-context", ephy_embed_shell_get_web_context (shell),
-                       "network-session", ephy_embed_shell_get_network_session (shell),
+                       "network-session", ephy_tab_session_get_network_session (tab_session),
                        "user-content-manager", ucm,
                        "settings", ephy_embed_prefs_get_settings (),
                        "is-controlled-by-automation", ephy_embed_shell_get_mode (shell) == EPHY_EMBED_SHELL_MODE_AUTOMATION,

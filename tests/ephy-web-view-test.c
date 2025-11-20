@@ -165,7 +165,7 @@ test_ephy_web_view_load_url (void)
     EphyWebView *view;
     GtkWidget *window = gtk_window_new ();
 
-    view = EPHY_WEB_VIEW (ephy_web_view_new ());
+    view = EPHY_WEB_VIEW (ephy_web_view_new (NULL));
     gtk_window_set_child (GTK_WINDOW (window), GTK_WIDGET (view));
     test = test_load_url[i];
     loop = g_main_loop_new (NULL, FALSE);
@@ -321,7 +321,7 @@ test_ephy_web_view_normalize_or_autosearch (void)
   EphySearchEngine *default_engine;
   g_autoptr (EphySearchEngine) test_engine = NULL;
 
-  view = EPHY_WEB_VIEW (ephy_web_view_new ());
+  view = EPHY_WEB_VIEW (ephy_web_view_new (NULL));
 
   shell = ephy_embed_shell_get_default ();
   manager = ephy_embed_shell_get_search_engine_manager (shell);
@@ -411,7 +411,7 @@ test_ephy_web_view_provisional_load_failure_updates_back_forward_list (void)
   EphyWebView *view;
   const char *bad_url;
 
-  view = EPHY_WEB_VIEW (ephy_web_view_new ());
+  view = EPHY_WEB_VIEW (ephy_web_view_new (NULL));
 
   loop = setup_ensure_back_forward_list_changes (view);
   bad_url = "https://localhost:2984375930/";
@@ -451,7 +451,7 @@ test_ephy_web_view_error_pages_not_stored_in_history (void)
   EphyHistoryService *history_service;
   EphyEmbedShell *embed_shell = ephy_embed_shell_get_default ();
 
-  view = EPHY_WEB_VIEW (ephy_web_view_new ());
+  view = EPHY_WEB_VIEW (ephy_web_view_new (NULL));
   loop = g_main_loop_new (NULL, FALSE);
   bad_url = "https://localhost:2984375932/";
 

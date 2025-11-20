@@ -87,7 +87,7 @@ typedef enum {
   EPHY_WEB_VIEW_REGISTER_MESSAGE_HANDLER_FOR_NEXT_LOAD
 } EphyWebViewMessageHandlerScope;
 
-GtkWidget *                ephy_web_view_new                      (void);
+GtkWidget *                ephy_web_view_new                      (const char *uuid);
 GtkWidget                 *ephy_web_view_new_with_related_view    (WebKitWebView             *related_view);
 void                       ephy_web_view_load_request             (EphyWebView               *view,
                                                                    WebKitURIRequest          *request);

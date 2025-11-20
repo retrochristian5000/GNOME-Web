@@ -50,7 +50,7 @@ test_ephy_embed_shell_web_view_created (void)
   g_signal_connect (embed_shell, "web-view-created",
                     G_CALLBACK (web_view_created_cb), &web_view_created);
 
-  view = g_object_ref_sink (ephy_web_view_new ());
+  view = g_object_ref_sink (ephy_web_view_new (NULL));
   g_assert_true (web_view_created);
   g_object_unref (view);
 }

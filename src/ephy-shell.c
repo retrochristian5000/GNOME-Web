@@ -1104,6 +1104,7 @@ show_notification_cb (WebKitWebView      *web_view,
 EphyEmbed *
 ephy_shell_new_tab_full (EphyShell       *shell,
                          const char      *title,
+                         const char      *container_uuid,
                          WebKitWebView   *related_view,
                          EphyWindow      *window,
                          EphyEmbed       *previous_embed,
@@ -1144,7 +1145,7 @@ ephy_shell_new_tab_full (EphyShell       *shell,
   if (related_view)
     web_view = ephy_web_view_new_with_related_view (related_view);
   else
-    web_view = ephy_web_view_new ();
+    web_view = ephy_web_view_new (container_uuid);
 
   g_signal_connect (web_view, "show-notification", G_CALLBACK (show_notification_cb), NULL);
 
@@ -1183,7 +1184,7 @@ ephy_shell_new_tab (EphyShell       *shell,
                     EphyEmbed       *previous_embed,
                     EphyNewTabFlags  flags)
 {
-  return ephy_shell_new_tab_full (shell, NULL, NULL, parent_window,
+  return ephy_shell_new_tab_full (shell, NULL, NULL, NULL, parent_window,
                                   previous_embed, flags);
 }
 
@@ -1638,7 +1639,7 @@ ephy_shell_open_uris_idle (OpenURIsData *data)
 
   if (!reusing_empty_tab && !url_is_xpi) {
     embed = ephy_shell_new_tab_full (data->shell,
-                                     NULL, NULL,
+                                     NULL, NULL, NULL,
                                      data->window,
                                      data->previous_embed,
                                      data->flags | page_flags);
