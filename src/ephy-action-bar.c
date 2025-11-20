@@ -380,7 +380,8 @@ ephy_action_bar_new (EphyWindow *window)
 }
 
 GtkWidget *
-ephy_action_bar_get_navigation_button (EphyActionBar *action_bar, gboolean is_forward)
+ephy_action_bar_get_navigation_button (EphyActionBar *action_bar,
+                                       gboolean       is_forward)
 {
   return is_forward ? action_bar->navigation_forward : action_bar->navigation_back;
 }
@@ -392,7 +393,8 @@ ephy_action_bar_get_history_menu (EphyActionBar *action_bar)
 }
 
 void
-ephy_action_bar_set_history_menu (EphyActionBar *action_bar, GtkWidget *popover)
+ephy_action_bar_set_history_menu (EphyActionBar *action_bar,
+                                  GtkWidget     *popover)
 {
   action_bar->history_menu = popover;
 }
@@ -407,7 +409,7 @@ void
 ephy_action_bar_history_menu_closed_cb (EphyActionBar *action_bar)
 {
   GtkWidget *parent;
-  
+
   parent = gtk_widget_get_parent (action_bar->history_menu);
 
   g_clear_pointer (&action_bar->history_menu, gtk_widget_unparent);

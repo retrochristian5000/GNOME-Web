@@ -739,7 +739,7 @@ ephy_embed_shell_create_network_session_if_needed (EphyEmbedShell *shell)
     priv->network_session = webkit_network_session_new (ephy_profile_dir (), ephy_cache_dir ());
     webkit_network_session_set_persistent_credential_storage_enabled (priv->network_session, FALSE);
   }
-  
+
   ephy_tab_session_set_network_session_singleton (priv->network_session);
 
   webkit_network_session_set_itp_enabled (priv->network_session,

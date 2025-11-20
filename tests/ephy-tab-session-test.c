@@ -40,23 +40,23 @@
 static void
 test_ephy_tab_session_create (void)
 {
-	EphyTabSession *one = ephy_tab_session_new_from_container ("hello"),
-	               *two = ephy_tab_session_new_from_container ("uuid-uuid-uuid-uuid-uuid"),
-				   *three = ephy_tab_session_new_from_container ("0"),
-				   *four;
-	
-	g_assert (ephy_tab_session_get_running_sessions_count () == 3);
-	g_object_unref (three);
-	g_assert (ephy_tab_session_get_running_sessions_count () == 2);
-	g_object_unref (two);
-	g_assert (ephy_tab_session_get_running_sessions_count () == 1);
-	g_object_unref (one);
-	g_assert (ephy_tab_session_get_running_sessions_count () == 0);
-	
-	four = ephy_tab_session_new_from_container (":O");
-	g_assert (ephy_tab_session_get_running_sessions_count () == 1);
-	g_object_unref (four);
-	g_assert (ephy_tab_session_get_running_sessions_count () == 0);
+  EphyTabSession *one = ephy_tab_session_new_from_container ("hello"),
+                 *two = ephy_tab_session_new_from_container ("uuid-uuid-uuid-uuid-uuid"),
+                 *three = ephy_tab_session_new_from_container ("0"),
+                 *four;
+
+  g_assert (ephy_tab_session_get_running_sessions_count () == 3);
+  g_object_unref (three);
+  g_assert (ephy_tab_session_get_running_sessions_count () == 2);
+  g_object_unref (two);
+  g_assert (ephy_tab_session_get_running_sessions_count () == 1);
+  g_object_unref (one);
+  g_assert (ephy_tab_session_get_running_sessions_count () == 0);
+
+  four = ephy_tab_session_new_from_container (":O");
+  g_assert (ephy_tab_session_get_running_sessions_count () == 1);
+  g_object_unref (four);
+  g_assert (ephy_tab_session_get_running_sessions_count () == 0);
 }
 
 int

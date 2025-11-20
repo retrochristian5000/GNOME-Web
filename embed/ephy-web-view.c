@@ -4287,8 +4287,8 @@ ephy_web_view_class_init (EphyWebViewClass *klass)
                           NULL, NULL,
                           FALSE,
                           G_PARAM_READABLE | G_PARAM_STATIC_STRINGS);
-  
-  
+
+
   obj_properties[PROP_TAB_SESSION] =
     g_param_spec_object ("tab-session",
                          NULL, NULL,
@@ -4374,7 +4374,7 @@ ephy_web_view_new (const char *container_uuid)
   EphyEmbedShell *shell = ephy_embed_shell_get_default ();
   EphyTabSession *tab_session;
   g_autoptr (WebKitUserContentManager) ucm = webkit_user_content_manager_new ();
-  
+
   if (container_uuid)
     tab_session = ephy_tab_session_new_from_container (container_uuid);
   else

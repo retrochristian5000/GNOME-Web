@@ -67,13 +67,13 @@ build_new_tab_menu (GtkWidget *action_bar,
 
   names = get_container_names ();
   uuids = get_container_uuids ();
-  
-  embed_shell = ephy_shell_get_default();
+
+  embed_shell = ephy_shell_get_default ();
   window = EPHY_WINDOW (gtk_application_get_active_window (GTK_APPLICATION (embed_shell)));
 
   menu = g_menu_new ();
   split = g_menu_new ();
-  
+
   for (size_t i = 0; i < names->len; i++) {
     uuid = g_ptr_array_index (uuids, i);
     str = g_strdup_printf ("win.new-tab-container::%s", uuid);
@@ -94,7 +94,7 @@ build_new_tab_menu (GtkWidget *action_bar,
     ephy_action_bar_start_set_new_tab_menu (EPHY_ACTION_BAR_START (action_bar), popover);
   else
     ephy_action_bar_set_tab_button_menu (EPHY_ACTION_BAR (action_bar), popover);
-  
+
   return popover;
 }
 
@@ -118,7 +118,7 @@ handle_new_tab_menu (GtkWidget  *parent,
   popover = build_new_tab_menu (parent, widget);
 
   gtk_widget_set_state_flags (widget, GTK_STATE_FLAG_CHECKED, FALSE);
-  
+
   if (EPHY_IS_ACTION_BAR_START (widget))
     g_signal_connect_swapped (popover, "closed",
                               G_CALLBACK (ephy_action_bar_tab_menu_closed_cb),
@@ -193,11 +193,11 @@ middle_click_handle_on_history_menu_item (EphyEmbed                 *embed,
 }
 
 static void
-history_row_released_cb (GtkGesture         *gesture,
-                         int                 n_click,
-                         double              x,
-                         double              y,
-                         GtkWidget          *action_bar_common)
+history_row_released_cb (GtkGesture *gesture,
+                         int         n_click,
+                         double      x,
+                         double      y,
+                         GtkWidget  *action_bar_common)
 {
   WebKitBackForwardListItem *item;
   GtkWidget *widget;
@@ -205,7 +205,7 @@ history_row_released_cb (GtkGesture         *gesture,
   GtkRoot *root;
   EphyEmbed *embed;
   GtkPopover *history_menu_popover;
-  
+
   if (EPHY_IS_ACTION_BAR_START (action_bar_common))
     history_menu_popover = GTK_POPOVER (ephy_action_bar_start_get_history_menu (EPHY_ACTION_BAR_START (action_bar_common)));
   else
@@ -302,7 +302,7 @@ build_history_row (GtkWidget                 *action_bar_common,
   GtkEventController *controller;
   GCancellable *cancellable;
   GtkGesture *gesture;
-  
+
   if (EPHY_IS_ACTION_BAR_START (action_bar_common))
     cancellable = ephy_action_bar_start_get_cancellable (EPHY_ACTION_BAR_START (action_bar_common));
   else
@@ -403,14 +403,14 @@ build_history_menu (GtkWidget                      *action_bar_common,
 }
 
 void
-handle_history_menu (GtkWidget *action_bar,
-                     double              x,
-                     double              y,
-                     GtkGesture         *gesture)
+handle_history_menu (GtkWidget  *action_bar,
+                     double      x,
+                     double      y,
+                     GtkGesture *gesture)
 {
   GtkWidget *widget;
   EphyActionBarStart *action_bar_start = NULL;
-  EphyActionBar      *action_bar_base  = NULL;
+  EphyActionBar *action_bar_base = NULL;
   GtkPopover *history_menu;
   GtkWidget *navigation_back, *navigation_forward;
   EphyNavigationHistoryDirection direction;
@@ -424,16 +424,16 @@ handle_history_menu (GtkWidget *action_bar,
 
   if (EPHY_IS_ACTION_BAR_START (action_bar)) {
     action_bar_start = EPHY_ACTION_BAR_START (action_bar);
-    navigation_back  = ephy_action_bar_start_get_navigation_button (action_bar_start, FALSE);
+    navigation_back = ephy_action_bar_start_get_navigation_button (action_bar_start, FALSE);
     navigation_forward = ephy_action_bar_start_get_navigation_button (action_bar_start, TRUE);
   } else if (EPHY_IS_ACTION_BAR (action_bar)) {
-    action_bar_base  = EPHY_ACTION_BAR (action_bar);
-    navigation_back  = ephy_action_bar_get_navigation_button (action_bar_base, FALSE);
+    action_bar_base = EPHY_ACTION_BAR (action_bar);
+    navigation_back = ephy_action_bar_get_navigation_button (action_bar_base, FALSE);
     navigation_forward = ephy_action_bar_get_navigation_button (action_bar_base, TRUE);
   }
-  
+
   g_assert (action_bar_start || action_bar_base);
-  
+
   if (widget == navigation_back)
     direction = EPHY_NAVIGATION_HISTORY_DIRECTION_BACK;
   else if (widget == navigation_forward)
@@ -442,7 +442,7 @@ handle_history_menu (GtkWidget *action_bar,
     return;
 
   build_history_menu (action_bar, widget, direction);
-  
+
   if (action_bar_start) {
     history_menu = GTK_POPOVER (ephy_action_bar_start_get_history_menu (action_bar_start));
   } else {
@@ -451,7 +451,7 @@ handle_history_menu (GtkWidget *action_bar,
 
   gtk_popover_popup (GTK_POPOVER (history_menu));
   gtk_widget_set_state_flags (widget, GTK_STATE_FLAG_CHECKED, FALSE);
-  
+
   if (action_bar_start)
     g_signal_connect_swapped (history_menu, "closed",
                               G_CALLBACK (ephy_action_bar_start_history_menu_closed_cb), action_bar_start);

@@ -29,7 +29,7 @@ static GHashTable *container_sessions;
 
 struct _EphyTabSession {
   GObject parent_instance;
-  
+
   WebKitNetworkSession *network_session;
   char *uuid;
   char *profile_dir;
@@ -59,7 +59,7 @@ void
 ephy_tab_session_set_network_session_singleton (WebKitNetworkSession *object)
 {
   g_assert (!session_singleton);
-  
+
   session_singleton = object;
   LOG ("SET Network session singleton was set: %p", session_singleton);
 }
@@ -69,7 +69,7 @@ ephy_tab_session_get_network_session (EphyTabSession *self)
 {
   if (!self->uuid)
     return session_singleton;
-  
+
   return NULL;
 }
 
@@ -82,8 +82,8 @@ ephy_tab_session_get_cache_dir (EphyTabSession *self)
     }
     return self->cache_dir;
   }
-  
-  return ephy_cache_dir();
+
+  return ephy_cache_dir ();
 }
 
 const char *
@@ -95,7 +95,7 @@ ephy_tab_session_get_profile_dir (EphyTabSession *self)
     }
     return self->profile_dir;
   }
-  
+
   return ephy_profile_dir ();
 }
 
@@ -104,7 +104,7 @@ ephy_tab_session_finalize (GObject *object)
 {
   EphyTabSession *self = EPHY_TAB_SESSION (object);
   size_t size;
-  
+
   if (!self->uuid) {
     LOG ("GOODBYE TabSession (singleton): %p", session_singleton);
     g_assert (session_singleton);
@@ -113,14 +113,14 @@ ephy_tab_session_finalize (GObject *object)
 
   LOG ("GOODBYE TabSession (UUID:%s): %p", self->uuid, session_singleton);
   g_hash_table_remove (container_sessions, self->uuid);
-  
+
   /* Glib.HashTable.unref doesn't have a way to tell if the refcount
    * hits zero.  It just... invalidates the memory. So we'll check
    * beforehand if it's empty (usually indicating this is the last
    * instance, anyway) */
   size = g_hash_table_size (container_sessions);
   g_hash_table_unref (container_sessions);
-  if (size == 0) 
+  if (size == 0)
     container_sessions = NULL;
 }
 
@@ -129,30 +129,31 @@ ephy_tab_session_constructed (GObject *object)
 {
   EphyTabSession *self = EPHY_TAB_SESSION (object);
   WebKitNetworkSession *network_session;
-  
+
   /* If no container UUID is provided, this is the singleton */
   if (!self->uuid) {
     LOG ("HELLO TabSession (singleton): %p (%s)", session_singleton, ephy_tab_session_get_profile_dir (self));
     g_assert (session_singleton);
     return;
   }
-  
+
   /* otherwise, this is a container */
   if (!container_sessions)
     container_sessions = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
   else
     g_hash_table_ref (container_sessions);
-  
+
   network_session = webkit_network_session_new (ephy_tab_session_get_profile_dir (self),
                                                 ephy_tab_session_get_cache_dir (self));
   g_hash_table_insert (container_sessions, self->uuid, network_session);
-  // To avoid hash lookup
+  /* To avoid hash lookup */
   self->network_session = network_session;
   LOG ("HELLO TabSession (UUID:%s): %p (%s)", self->uuid, self->network_session, ephy_tab_session_get_profile_dir (self));
 }
 
 static void
-ephy_tab_session_set_uuid (EphyTabSession *self, const char *uuid)
+ephy_tab_session_set_uuid (EphyTabSession *self,
+                           const char     *uuid)
 {
   char *uuid_dup = g_strdup (uuid);
   self->uuid = uuid_dup;
@@ -168,7 +169,7 @@ ephy_tab_session_get_property (GObject    *object,
                                GParamSpec *pspec)
 {
   EphyTabSession *tab_session = EPHY_TAB_SESSION (object);
-  
+
   /* TODO: No */
   g_value_set_string (value, tab_session->uuid);
 }
@@ -194,17 +195,17 @@ static void
 ephy_tab_session_class_init (EphyTabSessionClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
-  
+
   object_class->constructed = ephy_tab_session_constructed;
   object_class->finalize = ephy_tab_session_finalize;
   object_class->get_property = ephy_tab_session_get_property;
   object_class->set_property = ephy_tab_session_set_property;
-  
+
   obj_properties[PROP_UUID] =
     g_param_spec_string ("uuid",
                          NULL, NULL, NULL,
                          G_PARAM_CONSTRUCT_ONLY | G_PARAM_READWRITE);
-  
+
   g_object_class_install_properties (object_class,
                                      LAST_PROP,
                                      obj_properties);
@@ -219,8 +220,8 @@ EphyTabSession *
 ephy_tab_session_new_from_container (const char *uuid)
 {
   EphyTabSession *tab_session;
-  
-  tab_session = g_object_new (EPHY_TYPE_TAB_SESSION, 
+
+  tab_session = g_object_new (EPHY_TYPE_TAB_SESSION,
                               "uuid", uuid,
                               NULL);
 
@@ -232,7 +233,7 @@ EphyTabSession *
 ephy_tab_session_new (void)
 {
   EphyTabSession *tab_session;
-  
+
   tab_session = g_object_new (EPHY_TYPE_TAB_SESSION, NULL);
 
   return tab_session;

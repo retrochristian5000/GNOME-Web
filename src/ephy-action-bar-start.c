@@ -178,18 +178,18 @@ history_row_released_cb (GtkGesture         *gesture,
 
 static void
 navigation_long_pressed_cb (GtkGesture         *gesture,
-                 double              x,
-                 double              y,
-                 EphyActionBarStart *action_bar_start)
+                            double              x,
+                            double              y,
+                            EphyActionBarStart *action_bar_start)
 {
   handle_history_menu (GTK_WIDGET (action_bar_start), x, y, gesture);
 }
 
 static void
 new_tab_long_pressed_cb (GtkGesture         *gesture,
-                 double              x,
-                 double              y,
-                 EphyActionBarStart *action_bar_start)
+                         double              x,
+                         double              y,
+                         EphyActionBarStart *action_bar_start)
 {
   handle_new_tab_menu (GTK_WIDGET (action_bar_start),
                        action_bar_start->new_tab_menu,
@@ -245,20 +245,20 @@ middle_click_released_cb (GtkGesture         *gesture,
 
 static void
 navigation_right_click_pressed_cb (GtkGesture         *gesture,
-                        int                 n_click,
-                        double              x,
-                        double              y,
-                        EphyActionBarStart *action_bar_start)
+                                   int                 n_click,
+                                   double              x,
+                                   double              y,
+                                   EphyActionBarStart *action_bar_start)
 {
   handle_history_menu (GTK_WIDGET (action_bar_start), x, y, gesture);
 }
 
 static void
 new_tab_right_click_pressed_cb (GtkGesture         *gesture,
-                        int                 n_click,
-                        double              x,
-                        double              y,
-                        EphyActionBarStart *action_bar_start)
+                                int                 n_click,
+                                double              x,
+                                double              y,
+                                EphyActionBarStart *action_bar_start)
 {
   handle_new_tab_menu (GTK_WIDGET (action_bar_start),
                        action_bar_start->new_tab_menu,
@@ -393,7 +393,6 @@ ephy_action_bar_start_class_init (EphyActionBarStartClass *klass)
                                            middle_click_pressed_cb);
   gtk_widget_class_bind_template_callback (widget_class,
                                            middle_click_released_cb);
-
 }
 
 static void
@@ -411,7 +410,8 @@ ephy_action_bar_start_new (void)
 
 
 GtkWidget *
-ephy_action_bar_start_get_navigation_button (EphyActionBarStart *action_bar, gboolean is_forward)
+ephy_action_bar_start_get_navigation_button (EphyActionBarStart *action_bar,
+                                             gboolean            is_forward)
 {
   return is_forward ? action_bar->navigation_forward : action_bar->navigation_back;
 }
@@ -429,7 +429,8 @@ ephy_action_bar_start_get_history_menu (EphyActionBarStart *action_bar_start)
 }
 
 void
-ephy_action_bar_start_set_history_menu (EphyActionBarStart *action_bar_start, GtkWidget *popover)
+ephy_action_bar_start_set_history_menu (EphyActionBarStart *action_bar_start,
+                                        GtkWidget          *popover)
 {
   action_bar_start->history_menu = popover;
 }
@@ -444,7 +445,7 @@ void
 ephy_action_bar_start_history_menu_closed_cb (EphyActionBarStart *action_bar_start)
 {
   GtkWidget *parent;
-  
+
   parent = gtk_widget_get_parent (action_bar_start->history_menu);
 
   g_clear_pointer (&action_bar_start->history_menu, gtk_widget_unparent);
@@ -459,7 +460,7 @@ void
 ephy_action_bar_tab_menu_closed_cb (EphyActionBarStart *action_bar_start)
 {
   GtkWidget *parent;
- 
+
   parent = gtk_widget_get_parent (action_bar_start->new_tab_menu);
 
   g_clear_pointer (&action_bar_start->new_tab_menu, gtk_widget_unparent);
@@ -468,7 +469,6 @@ ephy_action_bar_tab_menu_closed_cb (EphyActionBarStart *action_bar_start)
   g_cancellable_cancel (action_bar_start->cancellable);
   g_clear_object (&action_bar_start->cancellable);
   action_bar_start->cancellable = g_cancellable_new ();
-
 }
 
 void

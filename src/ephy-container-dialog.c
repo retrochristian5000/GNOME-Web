@@ -85,19 +85,19 @@ create_button_pressed_cb (GtkGesture *gesture)
 }
 
 static void
-create_button_released_cb (GtkGesture         *gesture,
-                           int                 n_click,
-                           double              x,
-                           double              y,
+create_button_released_cb (GtkGesture          *gesture,
+                           int                  n_click,
+                           double               x,
+                           double               y,
                            EphyContainerDialog *container_dialog)
 {
   GtkEditable *container_entry = GTK_EDITABLE (container_dialog->container_entry);
   const char *container_name = gtk_editable_get_text (container_entry);
-  
+
   if (!try_create_container (container_name, "blue")) {
-    // TODO: Put a toast
+    /* TODO: Put a toast */
   }
-  
+
   adw_dialog_close (ADW_DIALOG (container_dialog));
 }
 
@@ -138,7 +138,7 @@ ephy_container_dialog_class_init (EphyContainerDialogClass *klass)
 
   gtk_widget_class_set_template_from_resource (widget_class,
                                                "/org/gnome/epiphany/gtk/container-dialog.ui");
-                                               
+
   gtk_widget_class_bind_template_callback (widget_class,
                                            create_button_pressed_cb);
   gtk_widget_class_bind_template_callback (widget_class,

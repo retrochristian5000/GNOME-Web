@@ -32,22 +32,22 @@ create_gsetting (const char *UUID,
   const gchar *name;
   GVariant *variant;
   GVariantBuilder builder, result;
-  
-	g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sa{sv}}"));
-	g_variant_builder_init (&result, G_VARIANT_TYPE ("a{sv}"));
+
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("a{sa{sv}}"));
+  g_variant_builder_init (&result, G_VARIANT_TYPE ("a{sv}"));
   /* name */
-  g_variant_builder_add  (&result, "{sv}", "name", g_variant_new_string (container_name));
+  g_variant_builder_add (&result, "{sv}", "name", g_variant_new_string (container_name));
   /* color enum */
-  g_variant_builder_add  (&result, "{sv}", "color", g_variant_new_uint16 (0));
-  
+  g_variant_builder_add (&result, "{sv}", "color", g_variant_new_uint16 (0));
+
   g_settings_get (EPHY_SETTINGS_CONTAINERS, EPHY_PREFS_CONTAINERS_CONTAINER_MAP, "a{sa{sv}}", &iter);
-  
+
   while (g_variant_iter_next (iter, "{s@a{sv}}", &name, &variant)) {
     g_variant_builder_add (&builder, "{s@a{sv}}", name, g_variant_ref (variant));
   }
-  
+
   g_variant_builder_add (&builder, "{s@a{sv}}", UUID, g_variant_builder_end (&result));
-  
+
   return g_settings_set_value (EPHY_SETTINGS_CONTAINERS,
                                EPHY_PREFS_CONTAINERS_CONTAINER_MAP,
                                g_variant_builder_end (&builder));
@@ -60,17 +60,17 @@ get_container_uuids ()
   const gchar *name;
   g_autoptr (GPtrArray) names = NULL;
   GVariant *variant;
-  
+
   g_settings_get (EPHY_SETTINGS_CONTAINERS, EPHY_PREFS_CONTAINERS_CONTAINER_MAP, "a{sa{sv}}", &iter);
-  
+
   names = g_ptr_array_new_with_free_func (g_free);
-  
+
   while (g_variant_iter_next (iter, "{s@a{sv}}", &name, &variant)) {
     g_ptr_array_add (names, g_strdup (name));
-    
+
     g_variant_unref (variant);
   }
-  
+
   g_ptr_array_ref (names);
   return names;
 }
@@ -82,23 +82,23 @@ get_container_names ()
   const gchar *name, *container_name;
   g_autoptr (GPtrArray) names = NULL;
   GVariant *variant;
-  
+
   g_settings_get (EPHY_SETTINGS_CONTAINERS, EPHY_PREFS_CONTAINERS_CONTAINER_MAP, "a{sa{sv}}", &iter);
-  
+
   names = g_ptr_array_new_with_free_func (g_free);
-  
+
   while (g_variant_iter_next (iter, "{s@a{sv}}", &name, &variant)) {
     container_name = NULL;
     g_variant_lookup (variant, "name", "&s", &container_name);
-    
+
     if (container_name)
       g_ptr_array_add (names, g_strdup (container_name));
     else
       g_warning ("No container name for UUID %s", name);
-    
+
     g_variant_unref (variant);
   }
-  
+
   g_ptr_array_ref (names);
   return names;
 }
@@ -107,8 +107,7 @@ gboolean
 try_create_container (const char *container_name,
                       const char *color)
 {
-  g_autofree gchar *UUID = g_uuid_string_random();
-	create_gsetting (UUID, container_name, color);
-	return TRUE;
+  g_autofree gchar *UUID = g_uuid_string_random ();
+  create_gsetting (UUID, container_name, color);
+  return TRUE;
 }
-

@@ -115,21 +115,21 @@ window_cmd_new_tab_container (GSimpleAction *action,
   g_autofree char *url;
   size_t str_len;
   const char *uuid;
-  
+
   if (!parameter) {
     g_warning ("Key pressed to open it!");
     return;
   }
   g_variant_get_string (parameter, &str_len);
   LOG ("UUID: %s", uuid);
-  
-  
-  embed_shell = ephy_shell_get_default();
+
+
+  embed_shell = ephy_shell_get_default ();
   embed = ephy_shell_new_tab_full (embed_shell,
                                    NULL, uuid, NULL, window, NULL,
                                    EPHY_NEW_TAB_JUMP);
   web_view = EPHY_GET_WEBKIT_WEB_VIEW_FROM_EMBED (embed);
-  
+
   url = g_settings_get_string (EPHY_SETTINGS_MAIN, EPHY_PREFS_HOMEPAGE_URL);
   LOG ("Tab: %s", url);
   if (g_strcmp0 (url, "") == 0) {
