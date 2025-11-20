@@ -66,6 +66,9 @@ typedef enum
 #define EPHY_PREFS_READER_FONT_STYLE             "font-style"
 #define EPHY_PREFS_READER_COLOR_SCHEME           "color-scheme"
 
+#define EPHY_PREFS_CONTAINERS_SCHEMA             "org.gnome.Epiphany.containers"
+#define EPHY_PREFS_CONTAINERS_CONTAINER_MAP      "container-map"
+
 #define EPHY_PREFS_STATE_SCHEMA                 "org.gnome.Epiphany.state"
 #define EPHY_PREFS_STATE_DOWNLOAD_DIR           "download-dir"
 #define EPHY_PREFS_STATE_RECENT_ENCODINGS       "recent-encodings"

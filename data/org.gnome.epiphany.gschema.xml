@@ -378,6 +378,14 @@
 			<default>false</default>
 		</key>
 	</schema>
+	<schema path="/org/gnome/epiphany/containers/" id="org.gnome.Epiphany.containers">
+	  <!-- TODO fix indention -->
+	  <key type="a{sa{sv}}" name="container-map">
+		<default>{}</default>
+		<summary>Container UUID map</summary>
+		<description>Maps containers from a UUID to their data</description>
+	  </key>
+	</schema>
 	<schema path="/org/gnome/epiphany/sync/" id="org.gnome.Epiphany.sync">
 		<key type="s" name="sync-token-server">
 			<default>'https://token.services.mozilla.com/1.0/sync/1.5'</default>
