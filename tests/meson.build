@@ -167,6 +167,17 @@ if get_option('unit_tests').enabled()
        string_test,
        env: envs
   )
+  
+  tab_session_test = executable('test-tab-session-view',
+    'ephy-tab-session-test.c',
+    resources,
+    readability_resources,
+    dependencies: ephymain_dep
+  )
+  test('Tab session test',
+       tab_session_test,
+       env: envs
+  )
 
   uri_helpers_test = executable('test-ephy-uri-helpers',
     'ephy-uri-helpers-test.c',
