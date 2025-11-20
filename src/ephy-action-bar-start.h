@@ -32,12 +32,19 @@ G_BEGIN_DECLS
 G_DECLARE_FINAL_TYPE (EphyActionBarStart, ephy_action_bar_start, EPHY, ACTION_BAR_START, GtkBox);
 
 EphyActionBarStart *ephy_action_bar_start_new                               (void);
+GtkWidget          *ephy_action_bar_start_get_navigation_button             (EphyActionBarStart *action_bar_start, gboolean is_forward);
 GtkWidget          *ephy_action_bar_start_get_navigation_box                (EphyActionBarStart *action_bar_start);
+GtkWidget          *ephy_action_bar_start_get_history_menu                  (EphyActionBarStart *action_bar_start);
+void                ephy_action_bar_start_set_history_menu                  (EphyActionBarStart *action_bar_start, GtkWidget *popover);
+GCancellable       *ephy_action_bar_start_get_cancellable                   (EphyActionBarStart *action_bar_start);
+void                ephy_action_bar_start_history_menu_closed_cb            (EphyActionBarStart *action_bar_start);
 void                ephy_action_bar_start_change_combined_stop_reload_state (EphyActionBarStart *action_bar_start,
                                                                              gboolean            loading);
 GtkWidget          *ephy_action_bar_start_get_placeholder                   (EphyActionBarStart *action_bar_start);
 
 void                ephy_action_bar_start_set_adaptive_mode                 (EphyActionBarStart *action_bar,
                                                                              EphyAdaptiveMode    adaptive_mode);
+void                ephy_action_bar_start_set_new_tab_menu                  (EphyActionBarStart *action_bar_start, GtkWidget *popover);
+void                ephy_action_bar_tab_menu_closed_cb                      (EphyActionBarStart *action_bar_start);
 
 G_END_DECLS

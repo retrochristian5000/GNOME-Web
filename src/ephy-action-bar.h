@@ -34,6 +34,12 @@ G_BEGIN_DECLS
 
 G_DECLARE_FINAL_TYPE (EphyActionBar, ephy_action_bar, EPHY, ACTION_BAR, AdwBin);
 
-EphyActionBar      *ephy_action_bar_new                  (EphyWindow *window);
+GtkWidget          *ephy_action_bar_get_navigation_button  (EphyActionBar *action_bar, gboolean is_forward);
+GtkWidget          *ephy_action_bar_get_history_menu       (EphyActionBar *action_bar);
+void                ephy_action_bar_set_history_menu       (EphyActionBar *action_bar, GtkWidget *popover);
+GCancellable       *ephy_action_bar_get_cancellable        (EphyActionBar *action_bar);
+EphyActionBar      *ephy_action_bar_new                    (EphyWindow *window);
+void                ephy_action_bar_set_tab_button_menu    (EphyActionBar *action_bar, GtkWidget *popover);
+void                ephy_action_bar_history_menu_closed_cb (EphyActionBar *action_bar);
 
 G_END_DECLS

@@ -28,11 +28,11 @@ template $EphyActionBarStart: Box {
 
       GestureClick {
         button: 3;
-        pressed => $right_click_pressed_cb();
+        pressed => $navigation_right_click_pressed_cb();
       }
 
       GestureLongPress {
-        pressed => $long_pressed_cb();
+        pressed => $navigation_long_pressed_cb();
       }
     }
 
@@ -53,11 +53,11 @@ template $EphyActionBarStart: Box {
 
       GestureClick {
         button: 3;
-        pressed => $right_click_pressed_cb();
+        pressed => $navigation_right_click_pressed_cb();
       }
 
       GestureLongPress {
-        pressed => $long_pressed_cb();
+        pressed => $navigation_long_pressed_cb();
       }
     }
   }
@@ -108,8 +108,16 @@ template $EphyActionBarStart: Box {
       pressed => $middle_click_pressed_cb();
       released => $middle_click_released_cb();
     }
+
+    GestureClick {
+      button: 3;
+      pressed => $new_tab_right_click_pressed_cb();
+    }
+
+    GestureLongPress {
+      pressed => $new_tab_long_pressed_cb();
+    }
   }
 
   Box placeholder {}
 }
-

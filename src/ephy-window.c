@@ -88,6 +88,7 @@ const struct {
   /* Page Menu accels */
   { "win.page-menu", { "F10", NULL } },
   { "win.new-tab", { "<Primary>T", NULL } },
+  { "win.new-tab-container-keybind", { "<alt><Primary>T", NULL } },
   { "win.open", { "<Primary>O", NULL } },
   { "win.save-as", { "<Primary>S", NULL } },
   { "win.save-as-application", { "<shift><Primary>A", NULL } },
@@ -873,6 +874,9 @@ change_combined_stop_reload_state (GSimpleAction *action,
 static const GActionEntry window_entries [] = {
   { "page-menu", window_cmd_page_menu },
   { "new-tab", window_cmd_new_tab },
+  { "new-tab-container", window_cmd_new_tab_container, "s" },
+  { "new-tab-container-keybind", window_cmd_new_tab_container },
+  { "new-container", window_cmd_new_container },
   { "open", window_cmd_open },
   { "save-as", window_cmd_save_as },
   { "save-as-application", window_cmd_save_as_application },
@@ -2056,7 +2060,7 @@ create_web_view_cb (WebKitWebView          *web_view,
   }
 
   embed = ephy_shell_new_tab_full (ephy_shell_get_default (),
-                                   NULL,
+                                   NULL, NULL,
                                    web_view,
                                    target_window,
                                    EPHY_GET_EMBED_FROM_EPHY_WEB_VIEW (web_view),
@@ -2445,7 +2449,7 @@ decide_navigation_policy (WebKitWebView            *web_view,
     }
 
     new_embed = ephy_shell_new_tab_full (ephy_shell_get_default (),
-                                         NULL, NULL,
+                                         NULL, NULL, NULL,
                                          target_window,
                                          window->active_embed,
                                          flags);
