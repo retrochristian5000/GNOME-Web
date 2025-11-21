@@ -120,7 +120,7 @@ window_cmd_new_tab_container (GSimpleAction *action,
     g_warning ("Key pressed to open it!");
     return;
   }
-  g_variant_get_string (parameter, &str_len);
+  uuid = g_variant_get_string (parameter, &str_len);
   LOG ("UUID: %s", uuid);
 
 
