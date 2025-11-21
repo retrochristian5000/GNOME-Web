@@ -30,6 +30,7 @@
 #include "ephy-bookmarks-export.h"
 #include "ephy-bookmarks-import.h"
 #include "ephy-bookmarks-manager.h"
+#include "ephy-container-dialog.h"
 #include "ephy-debug.h"
 #include "ephy-embed-container.h"
 #include "ephy-embed-prefs.h"
@@ -100,6 +101,51 @@ window_cmd_new_incognito_window (GSimpleAction *action,
                                  gpointer       user_data)
 {
   ephy_open_incognito_window (NULL);
+}
+
+void
+window_cmd_new_tab_container (GSimpleAction *action,
+                              GVariant      *parameter,
+                              gpointer       user_data)
+{
+  EphyWindow *window = user_data;
+  WebKitWebView *web_view;
+  EphyEmbed *embed;
+  EphyShell *embed_shell;
+  g_autofree char *url;
+  size_t str_len;
+  const char *uuid;
+
+  if (!parameter) {
+    g_warning ("Key pressed to open it!");
+    return;
+  }
+  uuid = g_strdup (g_variant_get_string (parameter, &str_len));
+  LOG ("UUID: %s", uuid);
+
+  embed_shell = ephy_shell_get_default ();
+  embed = ephy_shell_new_tab_full (embed_shell,
+                                   NULL, uuid, NULL, window, NULL,
+                                   EPHY_NEW_TAB_JUMP);
+  web_view = EPHY_GET_WEBKIT_WEB_VIEW_FROM_EMBED (embed);
+
+  url = g_settings_get_string (EPHY_SETTINGS_MAIN, EPHY_PREFS_HOMEPAGE_URL);
+  if (g_strcmp0 (url, "") == 0) {
+    webkit_web_view_load_uri (web_view, "ephy-about:overview");
+  } else if (g_strcmp0 (url, "about:newtab") == 0) {
+    webkit_web_view_load_uri (web_view, "ephy-about:newtab");
+  } else {
+    webkit_web_view_load_uri (web_view, url);
+  }
+}
+
+void
+window_cmd_new_container (GSimpleAction *action,
+                          GVariant      *parameter,
+                          gpointer       user_data)
+{
+  EphyContainerDialog *dialog = EPHY_CONTAINER_DIALOG (ephy_container_dialog_new ());
+  adw_dialog_present (ADW_DIALOG (dialog), user_data);
 }
 
 #define IMPORT_FROM_HTML_ID "html"

@@ -41,6 +41,7 @@
 #include "ephy-settings.h"
 #include "ephy-snapshot-service.h"
 #include "ephy-tabs-catalog.h"
+#include "ephy-tab-session.h"
 #include "ephy-uri-helpers.h"
 #include "ephy-view-source-handler.h"
 #include "ephy-web-app-utils.h"
@@ -733,11 +734,13 @@ ephy_embed_shell_create_network_session_if_needed (EphyEmbedShell *shell)
   if (priv->mode == EPHY_EMBED_SHELL_MODE_AUTOMATION)
     priv->network_session = g_object_ref (webkit_web_context_get_network_session_for_automation (priv->web_context));
   else if (priv->mode == EPHY_EMBED_SHELL_MODE_INCOGNITO)
-    priv->network_session = webkit_network_session_new_ephemeral ();
+    priv->network_session = webkit_network_session_new (ephy_profile_dir (), ephy_cache_dir ());
   else {
     priv->network_session = webkit_network_session_new (ephy_profile_dir (), ephy_cache_dir ());
     webkit_network_session_set_persistent_credential_storage_enabled (priv->network_session, FALSE);
   }
+
+  ephy_tab_session_set_network_session_singleton (priv->network_session);
 
   webkit_network_session_set_itp_enabled (priv->network_session,
                                           g_settings_get_boolean (EPHY_SETTINGS_WEB,

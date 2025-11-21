@@ -21,9 +21,11 @@
 #include "config.h"
 #include "ephy-tab-view.h"
 
+#include "ephy-containers.h"
 #include "ephy-desktop-utils.h"
 #include "ephy-embed-utils.h"
 #include "ephy-link.h"
+#include "ephy-tab-session.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
 
@@ -359,7 +361,7 @@ ephy_tab_view_get_is_pinned (EphyTabView *self,
 
   return adw_tab_page_get_pinned (page);
 }
-
+#include "ephy-pixbuf-utils.h"
 static void
 update_title_cb (AdwTabPage *page)
 {
@@ -465,6 +467,8 @@ ephy_tab_view_add_tab (EphyTabView *self,
 {
   AdwTabPage *page;
   EphyWebView *view;
+  EphyTabSession *tab_session;
+  const char *uuid;
 
   if (parent) {
     AdwTabPage *parent_page;
@@ -481,10 +485,16 @@ ephy_tab_view_add_tab (EphyTabView *self,
     adw_tab_view_set_selected_page (self->tab_view, page);
 
   view = ephy_embed_get_web_view (embed);
+  tab_session = ephy_web_view_get_tab_session (view);
 
   adw_tab_page_set_indicator_activatable (page, TRUE);
 
   g_object_bind_property_full (view, "is-loading", page, "loading", G_BINDING_SYNC_CREATE, is_loading_transform_cb, NULL, embed, NULL);
+
+  if ((uuid = ephy_tab_session_get_container_uuid (tab_session))) {
+    LOG ("UUID: %s", uuid);
+    adw_tab_page_set_indicator_icon (page, get_container_color_icon_by_uuid (uuid));
+  }
 
   g_signal_connect_object (embed, "notify::title",
                            G_CALLBACK (update_title_cb), page,
@@ -507,7 +517,8 @@ ephy_tab_view_add_tab (EphyTabView *self,
 
   update_title_cb (page);
   update_uri_cb (page);
-  update_indicator_cb (page);
+  /* TODO */
+  /*update_indicator_cb (page); */
 
   return adw_tab_view_get_page_position (self->tab_view, page);
 }

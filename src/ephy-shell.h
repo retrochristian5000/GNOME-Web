@@ -89,6 +89,8 @@ EphyEmbed               *ephy_shell_new_tab                 (EphyShell        *s
 
 EphyEmbed               *ephy_shell_new_tab_full            (EphyShell        *shell,
                                                              const char       *title,
+                                                             
+                                                             const char       *container_uuid,
                                                              WebKitWebView    *related_view,
                                                              EphyWindow       *parent_window,
                                                              EphyEmbed        *previous_embed,

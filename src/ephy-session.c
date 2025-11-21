@@ -1070,7 +1070,7 @@ confirm_before_recover (EphyWindow *window,
   EphyEmbed *embed;
 
   embed = ephy_shell_new_tab_full (ephy_shell_get_default (),
-                                   title, NULL,
+                                   title, NULL, NULL,
                                    window, NULL,
                                    EPHY_NEW_TAB_APPEND_LAST);
 
@@ -1242,7 +1242,7 @@ session_parse_embed (SessionParserContext  *context,
     flags = EPHY_NEW_TAB_APPEND_LAST;
 
     embed = ephy_shell_new_tab_full (ephy_shell_get_default (),
-                                     title, NULL,
+                                     title, NULL, NULL,
                                      context->window, NULL, flags);
 
     adw_tab_view_set_page_pinned (tab_view,

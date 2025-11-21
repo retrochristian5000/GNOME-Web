@@ -53,6 +53,7 @@ test_ephy_shell_basic_embeds (void)
              (ephy_shell,
              NULL,       /* title */
              NULL,       /* related view */
+             NULL,       /* container uuid */
              window,
              NULL,       /* embed */
              EPHY_NEW_TAB_DONT_SHOW_WINDOW,       /* flags */
@@ -70,7 +71,8 @@ test_ephy_shell_basic_embeds (void)
              (ephy_shell,
              NULL,       /* title */
              NULL,       /* related view */
-             window,       /* window */
+             NULL,       /* container uuid */
+             window,     /* window */
              NULL,       /* embed */
              EPHY_NEW_TAB_DONT_SHOW_WINDOW,       /* flags */
              gtk_get_current_event_time ());

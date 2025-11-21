@@ -61,6 +61,10 @@ template $EphyActionBar: Adw.Bin {
 
     Adw.TabButton tab_button {
       action-name: "win.tabs-view";
+	  
+	  GestureLongPress {
+	    pressed => $tab_button_long_pressed_cb();
+	  }
     }
 
     Button bookmarks_button {

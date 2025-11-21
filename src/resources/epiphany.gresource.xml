@@ -18,6 +18,7 @@
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/extension-view.ui">resources/gtk/extension-view.ui</file>
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/firefox-sync-dialog.ui">resources/gtk/firefox-sync-dialog.ui</file>
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/history-dialog.ui">resources/gtk/history-dialog.ui</file>
+	<file preprocess="xml-stripblanks" compressed="true" alias="gtk/container-dialog.ui">resources/gtk/container-dialog.ui</file>
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/lang-row.ui">resources/gtk/lang-row.ui</file>
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/location-entry.ui">resources/gtk/location-entry.ui</file>
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/notebook-context-menu.ui">resources/gtk/notebook-context-menu.ui</file>

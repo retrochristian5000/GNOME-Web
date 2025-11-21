@@ -1,0 +1,62 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $EphyContainerDialog: Adw.Dialog {
+  content-width: 440;
+  title: _("Create Container");
+
+  Adw.ToolbarView {
+	bottom-bar-style: raised;
+	
+	[top]
+	Adw.HeaderBar {
+	  show-title: true;
+	  show-end-title-buttons: true;
+	}
+	
+	Adw.PreferencesPage {
+	  Adw.PreferencesGroup {
+        Adw.EntryRow container_entry {
+		  title: _("Container name");
+		  use-underline: true;
+        }
+      }
+	  
+	  Adw.PreferencesGroup {
+	    title: _("Tab Color");
+		Adw.PreferencesRow {
+          accessible-role: group;
+          activatable: false;
+          focusable: false;
+		  
+		  Box color_box {
+            spacing: 10;
+            margin-top: 4;
+            margin-bottom: 4;
+            halign: center;
+		    orientation: horizontal;
+		  }
+		}
+      }
+
+	  Adw.PreferencesGroup {
+		Button {
+		  margin-top: 6;
+		  halign: center;
+		  label: _("Create");
+
+		  GestureClick {
+		  	pressed => $create_button_pressed_cb();
+			released => $create_button_released_cb();
+		  }
+
+		  styles [
+		    "pill",
+			"suggested-action",
+		  ]
+		}
+	  }
+	}
+  }
+}
+
