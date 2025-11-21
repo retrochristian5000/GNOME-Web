@@ -2556,6 +2556,12 @@ ephy_web_view_autofill_disable_popup (EphyWebView *web_view)
   web_view->autofill_popup_enabled = FALSE;
 }
 
+EphyTabSession *
+ephy_web_view_get_tab_session (EphyWebView *self)
+{
+  return self->tab_session;
+}
+
 static void
 authenticate_succeeded_cb (WebKitAuthenticationRequest *request,
                            WebKitCredential            *credential)

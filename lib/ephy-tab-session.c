@@ -87,6 +87,12 @@ ephy_tab_session_get_cache_dir (EphyTabSession *self)
 }
 
 const char *
+ephy_tab_session_get_container_uuid (EphyTabSession *self)
+{
+  return self->uuid;
+}
+
+const char *
 ephy_tab_session_get_profile_dir (EphyTabSession *self)
 {
   if (self->uuid) {
@@ -113,15 +119,19 @@ ephy_tab_session_finalize (GObject *object)
 
   LOG ("GOODBYE TabSession (UUID:%s): %p", self->uuid, session_singleton);
   g_hash_table_remove (container_sessions, self->uuid);
+  g_free (self->uuid);
 
   /* Glib.HashTable.unref doesn't have a way to tell if the refcount
    * hits zero.  It just... invalidates the memory. So we'll check
    * beforehand if it's empty (usually indicating this is the last
    * instance, anyway) */
   size = g_hash_table_size (container_sessions);
+  /* XXX: This logic is broken anyway. Containers with the same hash do not work. What an oversight :| */
   g_hash_table_unref (container_sessions);
-  if (size == 0)
+  if (size == 0) {
+    LOG ("container_sessions was presumably destroyed!");
     container_sessions = NULL;
+  }
 }
 
 static void
@@ -139,7 +149,7 @@ ephy_tab_session_constructed (GObject *object)
 
   /* otherwise, this is a container */
   if (!container_sessions)
-    container_sessions = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
+    container_sessions = g_hash_table_new_full (g_str_hash, g_str_equal, NULL, NULL);
   else
     g_hash_table_ref (container_sessions);
 

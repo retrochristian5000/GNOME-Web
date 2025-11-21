@@ -21,6 +21,7 @@
  * License along with this library. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <math.h>
 #include "config.h"
 #include "ephy-pixbuf-utils.h"
 
@@ -208,6 +209,24 @@ pixbuf_texture_unref_cb (guchar   *pixels,
                          gpointer  bytes)
 {
   g_bytes_unref (bytes);
+}
+
+GdkPixbuf *
+ephy_pixbuf_colored_icon_pixbuf (GdkRGBA rgba)
+{
+  cairo_surface_t *surface;
+  cairo_t *cr;
+  const unsigned w = 128, h = 128;
+
+  surface = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, w, h);
+
+  cr = cairo_create (surface);
+  cairo_set_source_rgb (cr, rgba.red, rgba.green, rgba.blue);
+  cairo_arc (cr, w / 2.0, h / 2.0, 50.0, 0.0, 2 * M_PI);
+  cairo_fill (cr);
+  cairo_destroy (cr);
+
+  return ephy_get_pixbuf_from_surface (surface, 0, 0, w, h);
 }
 
 GdkPixbuf *

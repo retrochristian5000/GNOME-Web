@@ -120,9 +120,8 @@ window_cmd_new_tab_container (GSimpleAction *action,
     g_warning ("Key pressed to open it!");
     return;
   }
-  uuid = g_variant_get_string (parameter, &str_len);
+  uuid = g_strdup (g_variant_get_string (parameter, &str_len));
   LOG ("UUID: %s", uuid);
-
 
   embed_shell = ephy_shell_get_default ();
   embed = ephy_shell_new_tab_full (embed_shell,
@@ -131,7 +130,6 @@ window_cmd_new_tab_container (GSimpleAction *action,
   web_view = EPHY_GET_WEBKIT_WEB_VIEW_FROM_EMBED (embed);
 
   url = g_settings_get_string (EPHY_SETTINGS_MAIN, EPHY_PREFS_HOMEPAGE_URL);
-  LOG ("Tab: %s", url);
   if (g_strcmp0 (url, "") == 0) {
     webkit_web_view_load_uri (web_view, "ephy-about:overview");
   } else if (g_strcmp0 (url, "about:newtab") == 0) {

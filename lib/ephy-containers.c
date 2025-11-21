@@ -20,8 +20,12 @@
 
 #include "ephy-containers.h"
 
+#include "ephy-debug.h"
+#include "ephy-pixbuf-utils.h"
 #include "ephy-settings.h"
 
+/* TODO: Free these */
+static GIcon *color_icons[ADW_ACCENT_COLOR_SLATE + 1];
 
 static gboolean
 create_gsetting (const char *UUID,
@@ -101,6 +105,46 @@ get_container_names ()
 
   g_ptr_array_ref (names);
   return names;
+}
+
+AdwAccentColor
+get_container_color_by_uuid (const char *container_uuid)
+{
+  g_autoptr (GVariantIter) iter = NULL;
+  const gchar *name;
+  uint16_t color = 0;
+  GVariant *variant;
+
+  g_settings_get (EPHY_SETTINGS_CONTAINERS, EPHY_PREFS_CONTAINERS_CONTAINER_MAP, "a{sa{sv}}", &iter);
+
+  while (g_variant_iter_next (iter, "{s@a{sv}}", &name, &variant)) {
+    if (g_strcmp0 (container_uuid, name) == 0) {
+      g_variant_lookup (variant, "color", "q", &color);
+      return color;
+    }
+    g_variant_unref (variant);
+  }
+
+  g_warning ("Accent color not set for container %s, setting to blue", container_uuid);
+
+  return ADW_ACCENT_COLOR_BLUE;
+}
+
+GIcon *
+get_container_color_icon_by_uuid (const char *container_uuid)
+{
+  AdwAccentColor color = get_container_color_by_uuid (container_uuid);
+  GdkRGBA rgba;
+
+  g_assert (color >= 0 && color <= ADW_ACCENT_COLOR_SLATE);
+
+  adw_accent_color_to_rgba (color, &rgba);
+
+  g_warning ("Container color: %d (%f, %f, %f)", color, rgba.red, rgba.green, rgba.blue);
+  if (!color_icons[color])
+    color_icons[color] = G_ICON (ephy_pixbuf_colored_icon_pixbuf (rgba));
+
+  return color_icons[color];
 }
 
 gboolean

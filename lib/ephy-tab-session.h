@@ -29,9 +29,11 @@ G_DECLARE_FINAL_TYPE (EphyTabSession, ephy_tab_session, EPHY, TAB_SESSION, GObje
 
 unsigned int    ephy_tab_session_get_running_sessions_count (void);
 void            ephy_tab_session_set_network_session_singleton (WebKitNetworkSession *object);
+
 WebKitNetworkSession *ephy_tab_session_get_network_session (EphyTabSession *self);
 const char *ephy_tab_session_get_cache_dir (EphyTabSession *self);
 const char *ephy_tab_session_get_profile_dir (EphyTabSession *self);
+const char *ephy_tab_session_get_container_uuid (EphyTabSession *self);
 EphyTabSession *ephy_tab_session_new_from_container (const char *uuid);
 EphyTabSession *ephy_tab_session_new (void);
 

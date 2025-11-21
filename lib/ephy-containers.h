@@ -20,12 +20,15 @@
 
 #pragma once
 
+#include <adwaita.h>
 #include <gtk/gtk.h>
 
 G_BEGIN_DECLS
 
-GPtrArray *get_container_uuids  ();
-GPtrArray *get_container_names  ();
-gboolean   try_create_container (const char *container_name, const char *color);
+GPtrArray      *get_container_uuids  ();
+GPtrArray      *get_container_names  ();
+AdwAccentColor  get_container_color_by_uuid (const char *container_uuid);
+GIcon          *get_container_color_icon_by_uuid (const char *container_uuid);
+gboolean        try_create_container (const char *container_name, const char *color);
 
 G_END_DECLS
