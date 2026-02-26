@@ -266,6 +266,8 @@ prefs_extensions_page_dispose (GObject *object)
 
   g_clear_weak_pointer (&self->web_extension_manager);
 
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_PREFS_EXTENSIONS_PAGE);
+
   G_OBJECT_CLASS (prefs_extensions_page_parent_class)->dispose (object);
 }
 

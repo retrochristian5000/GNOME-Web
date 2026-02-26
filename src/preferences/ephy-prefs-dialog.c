@@ -177,9 +177,22 @@ sync_features (EphyPrefsDialog *self)
 #endif
 
 static void
+ephy_prefs_dialog_dispose (GObject *object)
+{
+  EphyPrefsDialog *self = EPHY_PREFS_DIALOG (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_PREFS_DIALOG);
+
+  G_OBJECT_CLASS (ephy_prefs_dialog_parent_class)->dispose (object);
+}
+
+static void
 ephy_prefs_dialog_class_init (EphyPrefsDialogClass *klass)
 {
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
+
+  object_class->dispose = ephy_prefs_dialog_dispose;
 
   gtk_widget_class_set_template_from_resource (widget_class,
                                                "/org/gnome/epiphany/gtk/prefs-dialog.ui");

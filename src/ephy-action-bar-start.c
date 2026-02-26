@@ -451,6 +451,8 @@ ephy_action_bar_start_dispose (GObject *object)
   g_cancellable_cancel (action_bar_start->cancellable);
   g_clear_object (&action_bar_start->cancellable);
 
+  gtk_widget_dispose_template (GTK_WIDGET (action_bar_start), EPHY_TYPE_ACTION_BAR_START);
+
   G_OBJECT_CLASS (ephy_action_bar_start_parent_class)->dispose (object);
 }
 

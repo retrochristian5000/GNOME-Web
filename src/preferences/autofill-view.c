@@ -396,6 +396,8 @@ ephy_autofill_view_dispose (GObject *object)
     g_clear_object (&self->cancellable);
   }
 
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_AUTOFILL_VIEW);
+
   G_OBJECT_CLASS (ephy_autofill_view_parent_class)->dispose (object);
 }
 

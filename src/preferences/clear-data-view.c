@@ -422,6 +422,8 @@ clear_data_view_dispose (GObject *object)
     g_clear_object (&clear_data_view->cancellable);
   }
 
+  gtk_widget_dispose_template (GTK_WIDGET (clear_data_view), EPHY_TYPE_CLEAR_DATA_VIEW);
+
   G_OBJECT_CLASS (clear_data_view_parent_class)->dispose (object);
 }
 

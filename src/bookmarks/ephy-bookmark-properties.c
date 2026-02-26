@@ -471,6 +471,16 @@ ephy_bookmark_properties_finalize (GObject *object)
 }
 
 static void
+ephy_bookmark_properties_dispose (GObject *object)
+{
+  EphyBookmarkProperties *self = EPHY_BOOKMARK_PROPERTIES (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_BOOKMARK_PROPERTIES);
+
+  G_OBJECT_CLASS (ephy_bookmark_properties_parent_class)->dispose (object);
+}
+
+static void
 ephy_bookmark_properties_class_init (EphyBookmarkPropertiesClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -479,6 +489,7 @@ ephy_bookmark_properties_class_init (EphyBookmarkPropertiesClass *klass)
   object_class->set_property = ephy_bookmark_properties_set_property;
   object_class->constructed = ephy_bookmark_properties_constructed;
   object_class->finalize = ephy_bookmark_properties_finalize;
+  object_class->dispose = ephy_bookmark_properties_dispose;
 
   obj_properties[PROP_BOOKMARK] =
     g_param_spec_object ("bookmark",

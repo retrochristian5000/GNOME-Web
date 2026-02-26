@@ -646,6 +646,16 @@ prefs_sync_page_finalize (GObject *object)
 }
 
 static void
+prefs_sync_page_dispose (GObject *object)
+{
+  EphyFirefoxSyncDialog *self = EPHY_FIREFOX_SYNC_DIALOG (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_FIREFOX_SYNC_DIALOG);
+
+  G_OBJECT_CLASS (ephy_firefox_sync_dialog_parent_class)->dispose (object);
+}
+
+static void
 ephy_firefox_sync_dialog_class_init (EphyFirefoxSyncDialogClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -655,6 +665,7 @@ ephy_firefox_sync_dialog_class_init (EphyFirefoxSyncDialogClass *klass)
                                                "/org/gnome/epiphany/gtk/firefox-sync-dialog.ui");
 
   object_class->finalize = prefs_sync_page_finalize;
+  object_class->dispose = prefs_sync_page_dispose;
 
   gtk_widget_class_bind_template_child (widget_class, EphyFirefoxSyncDialog, sync_page_group);
   gtk_widget_class_bind_template_child (widget_class, EphyFirefoxSyncDialog, sync_firefox_iframe_box);

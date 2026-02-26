@@ -99,6 +99,8 @@ ephy_privacy_report_dispose (GObject *object)
   g_clear_pointer (&self->website_table, g_hash_table_unref);
   g_clear_pointer (&self->tracker_table, g_hash_table_unref);
 
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_PRIVACY_REPORT);
+
   G_OBJECT_CLASS (ephy_privacy_report_parent_class)->dispose (object);
 }
 

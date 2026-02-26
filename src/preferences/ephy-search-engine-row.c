@@ -133,6 +133,16 @@ on_ephy_search_engine_row_constructed (GObject *object)
 }
 
 static void
+ephy_search_engine_row_dispose (GObject *object)
+{
+  EphySearchEngineRow *self = EPHY_SEARCH_ENGINE_ROW (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_SEARCH_ENGINE_ROW);
+
+  G_OBJECT_CLASS (ephy_search_engine_row_parent_class)->dispose (object);
+}
+
+static void
 ephy_search_engine_row_class_init (EphySearchEngineRowClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -140,6 +150,7 @@ ephy_search_engine_row_class_init (EphySearchEngineRowClass *klass)
 
   object_class->set_property = ephy_search_engine_row_set_property;
   object_class->constructed = on_ephy_search_engine_row_constructed;
+  object_class->dispose = ephy_search_engine_row_dispose;
 
   properties[PROP_SEARCH_ENGINE] = g_param_spec_object ("search-engine",
                                                         NULL, NULL,

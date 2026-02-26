@@ -339,6 +339,16 @@ prefs_search_engine_page_finalize (GObject *object)
 }
 
 static void
+prefs_search_engine_page_dispose (GObject *object)
+{
+  PrefsSearchEnginePage *self = EPHY_PREFS_SEARCH_ENGINE_PAGE (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), PREFS_TYPE_SEARCH_ENGINE_PAGE);
+
+  G_OBJECT_CLASS (prefs_search_engine_page_parent_class)->dispose (object);
+}
+
+static void
 prefs_search_engine_page_class_init (PrefsSearchEnginePageClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -347,6 +357,7 @@ prefs_search_engine_page_class_init (PrefsSearchEnginePageClass *klass)
   object_class->set_property = prefs_search_engine_page_set_property;
   object_class->constructed = prefs_search_engine_page_constructed;
   object_class->finalize = prefs_search_engine_page_finalize;
+  object_class->dispose = prefs_search_engine_page_dispose;
 
   properties[PROP_SEARCH_ENGINE] =
     g_param_spec_object ("search-engine", NULL, NULL, EPHY_TYPE_SEARCH_ENGINE,
@@ -384,7 +395,7 @@ prefs_search_engine_page_new (EphySearchEngine        *engine,
                               EphySearchEngineManager *manager,
                               gboolean                 engine_is_new)
 {
-  return g_object_new (PREFS_SEARCH_ENGINE_PAGE,
+  return g_object_new (PREFS_TYPE_SEARCH_ENGINE_PAGE,
                        "search-engine", engine,
                        "manager", manager,
                        "engine-is-new", engine_is_new,

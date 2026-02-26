@@ -112,6 +112,16 @@ ephy_encoding_row_get_property (GObject    *object,
 }
 
 static void
+ephy_encoding_row_dispose (GObject *object)
+{
+  EphyEncodingRow *self = EPHY_ENCODING_ROW (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_ENCODING_ROW);
+
+  G_OBJECT_CLASS (ephy_encoding_row_parent_class)->dispose (object);
+}
+
+static void
 ephy_encoding_row_class_init (EphyEncodingRowClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -120,6 +130,7 @@ ephy_encoding_row_class_init (EphyEncodingRowClass *klass)
   /* class creation */
   object_class->set_property = ephy_encoding_row_set_property;
   object_class->get_property = ephy_encoding_row_get_property;
+  object_class->dispose = ephy_encoding_row_dispose;
 
   obj_properties[PROP_ENCODING] =
     g_param_spec_object ("encoding",

@@ -380,6 +380,16 @@ prefs_feature_page_constructed (GObject *object)
 }
 
 static void
+prefs_feature_page_dispose (GObject *object)
+{
+  PrefsFeaturesPage *self = EPHY_PREFS_FEATURES_PAGE (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_PREFS_FEATURES_PAGE);
+
+  G_OBJECT_CLASS (prefs_features_page_parent_class)->dispose (object);
+}
+
+static void
 prefs_features_page_class_init (PrefsFeaturesPageClass *klass)
 {
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
@@ -394,6 +404,7 @@ prefs_features_page_class_init (PrefsFeaturesPageClass *klass)
   object_class->get_property = prefs_feature_page_get_property;
   object_class->set_property = prefs_feature_page_set_property;
   object_class->constructed = prefs_feature_page_constructed;
+  object_class->dispose = prefs_feature_page_dispose;
 
   properties[PROP_DIALOG] = g_param_spec_object ("dialog",
                                                  NULL,

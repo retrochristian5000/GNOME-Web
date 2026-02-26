@@ -996,6 +996,8 @@ ephy_location_entry_dispose (GObject *object)
   g_clear_handle_id (&self->progress_timeout, g_source_remove);
   ephy_location_entry_page_action_clear (self);
 
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_LOCATION_ENTRY);
+
   G_OBJECT_CLASS (ephy_location_entry_parent_class)->dispose (object);
 }
 

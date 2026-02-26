@@ -27,7 +27,7 @@
 
 G_BEGIN_DECLS
 
-#define PREFS_SEARCH_ENGINE_PAGE (prefs_search_engine_page_get_type ())
+#define PREFS_TYPE_SEARCH_ENGINE_PAGE (prefs_search_engine_page_get_type ())
 
 G_DECLARE_FINAL_TYPE (PrefsSearchEnginePage, prefs_search_engine_page, EPHY, PREFS_SEARCH_ENGINE_PAGE, AdwNavigationPage);
 

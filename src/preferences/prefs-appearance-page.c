@@ -376,6 +376,8 @@ prefs_appearance_page_dispose (GObject *object)
 
   g_clear_object (&page->font_dialog);
 
+  gtk_widget_dispose_template (GTK_WIDGET (page), EPHY_TYPE_PREFS_APPEARANCE_PAGE);
+
   G_OBJECT_CLASS (prefs_appearance_page_parent_class)->dispose (object);
 }
 

@@ -121,9 +121,22 @@ copy_username_clicked (GtkWidget *button,
 }
 
 static void
+ephy_passwords_view_dispose (GObject *object)
+{
+  EphyPasswordsView *self = EPHY_PASSWORDS_VIEW (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_PASSWORDS_VIEW);
+
+  G_OBJECT_CLASS (ephy_passwords_view_parent_class)->dispose (object);
+}
+
+static void
 ephy_passwords_view_class_init (EphyPasswordsViewClass *klass)
 {
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
+
+  object_class->dispose = ephy_passwords_view_dispose;
 
   gtk_widget_class_set_template_from_resource (widget_class,
                                                "/org/gnome/epiphany/gtk/passwords-view.ui");

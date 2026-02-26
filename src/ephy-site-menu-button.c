@@ -152,6 +152,8 @@ ephy_site_menu_button_dispose (GObject *object)
 
   gtk_widget_unparent (self->popover_menu);
 
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_SITE_MENU_BUTTON);
+
   G_OBJECT_CLASS (ephy_site_menu_button_parent_class)->dispose (object);
 }
 
