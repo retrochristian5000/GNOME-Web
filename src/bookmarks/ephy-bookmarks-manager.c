@@ -470,6 +470,27 @@ ephy_bookmarks_manager_get_bookmark_by_id (EphyBookmarksManager *self,
   return NULL;
 }
 
+EphyBookmark *
+ephy_bookmarks_manager_get_bookmark_by_keyword (EphyBookmarksManager *self,
+                                                const char           *keyword)
+{
+  GSequenceIter *iter;
+
+  g_assert (EPHY_IS_BOOKMARKS_MANAGER (self));
+  g_assert (keyword);
+
+  for (iter = g_sequence_get_begin_iter (self->bookmarks);
+       !g_sequence_iter_is_end (iter);
+       iter = g_sequence_iter_next (iter)) {
+    EphyBookmark *bookmark = g_sequence_get (iter);
+
+    if (g_strcmp0 (ephy_bookmark_get_keyword (bookmark), keyword) == 0)
+      return bookmark;
+  }
+
+  return NULL;
+}
+
 void
 ephy_bookmarks_manager_create_tag (EphyBookmarksManager *self,
                                    const char           *tag)

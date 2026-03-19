@@ -139,6 +139,8 @@ entry_activate_cb (EphyLocationEntry      *entry,
   const char *content;
   char *address;
   char *effective_address;
+  EphyBookmark *bookmark = NULL;
+  EphyBookmarksManager *bookmarks_manager;
 
   if (controller->sync_address_is_blocked) {
     controller->sync_address_is_blocked = FALSE;
@@ -151,6 +153,12 @@ entry_activate_cb (EphyLocationEntry      *entry,
 
   if (g_str_has_prefix (content, "ephy-tab://") && handle_ephy_tab_uri (controller, content))
     return;
+
+  /* Look for keywords in bookmarks */
+  bookmarks_manager = ephy_shell_get_bookmarks_manager (ephy_shell_get_default ());
+  bookmark = ephy_bookmarks_manager_get_bookmark_by_keyword (bookmarks_manager, content);
+  if (bookmark)
+    content = ephy_bookmark_get_url (bookmark);
 
   address = g_strdup (content);
   effective_address = ephy_embed_utils_normalize_or_autosearch_address (g_strstrip (address));

@@ -38,6 +38,7 @@ struct _EphyBookmark {
 
   char *url;
   char *title;
+  char *keyword;
   GSequence *tags;
   gint64 time_added;
 
@@ -70,6 +71,7 @@ enum {
   PROP_PARENT_ID,       /* Firefox Sync */
   PROP_PARENT_NAME,     /* Firefox Sync */
   PROP_LOAD_IN_SIDEBAR, /* Firefox Sync */
+  PROP_KEYWORD,
   LAST_PROP
 };
 
@@ -96,6 +98,9 @@ ephy_bookmark_set_property (GObject      *object,
       break;
     case PROP_TITLE:
       ephy_bookmark_set_title (self, g_value_get_string (value));
+      break;
+    case PROP_KEYWORD:
+      ephy_bookmark_set_keyword (self, g_value_get_string (value));
       break;
     case PROP_BMK_URI:
       ephy_bookmark_set_url (self, g_value_get_string (value));
@@ -144,6 +149,9 @@ ephy_bookmark_get_property (GObject    *object,
     case PROP_TITLE:
       g_value_set_string (value, ephy_bookmark_get_title (self));
       break;
+    case PROP_KEYWORD:
+      g_value_set_string (value, ephy_bookmark_get_keyword (self));
+      break;
     case PROP_BMK_URI:
       g_value_set_string (value, ephy_bookmark_get_url (self));
       break;
@@ -177,6 +185,7 @@ ephy_bookmark_finalize (GObject *object)
 
   g_free (self->url);
   g_free (self->title);
+  g_free (self->keyword);
 
   g_sequence_free (self->tags);
 
@@ -215,6 +224,12 @@ ephy_bookmark_class_init (EphyBookmarkClass *klass)
     g_param_spec_string ("title",
                          NULL, NULL,
                          "Default bookmark title",
+                         G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS);
+
+  obj_properties[PROP_KEYWORD] =
+    g_param_spec_string ("keyword",
+                         NULL, NULL,
+                         NULL,
                          G_PARAM_READWRITE | G_PARAM_CONSTRUCT | G_PARAM_STATIC_STRINGS);
 
   obj_properties[PROP_BMK_URI] =
@@ -295,6 +310,7 @@ ephy_bookmark_new (const char *url,
                        "parentName", BOOKMARK_PARENT_NAME_VAL,
                        "loadInSidebar", BOOKMARK_LOAD_IN_SIDEBAR_VAL,
                        "id", id,
+                       "keyword", NULL,
                        NULL);
 }
 
@@ -351,6 +367,25 @@ ephy_bookmark_get_title (EphyBookmark *bookmark)
   g_assert (EPHY_IS_BOOKMARK (bookmark));
 
   return bookmark->title;
+}
+
+void
+ephy_bookmark_set_keyword (EphyBookmark *self,
+                           const char   *keyword)
+{
+  g_assert (EPHY_IS_BOOKMARK (self));
+
+  g_free (self->keyword);
+  self->keyword = g_strdup (keyword);
+  g_object_notify_by_pspec (G_OBJECT (self), obj_properties[PROP_KEYWORD]);
+}
+
+const char *
+ephy_bookmark_get_keyword (EphyBookmark *bookmark)
+{
+  g_assert (EPHY_IS_BOOKMARK (bookmark));
+
+  return bookmark->keyword;
 }
 
 void

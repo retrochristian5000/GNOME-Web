@@ -47,6 +47,8 @@ EphyBookmark *ephy_bookmarks_manager_get_bookmark_by_url            (EphyBookmar
                                                                      const char           *url);
 EphyBookmark *ephy_bookmarks_manager_get_bookmark_by_id             (EphyBookmarksManager *self,
                                                                      const char           *id);
+EphyBookmark *ephy_bookmarks_manager_get_bookmark_by_keyword        (EphyBookmarksManager *self,
+                                                                     const char           *keyword);
 
 void         ephy_bookmarks_manager_create_tag                      (EphyBookmarksManager *self,
                                                                      const char           *tag);
