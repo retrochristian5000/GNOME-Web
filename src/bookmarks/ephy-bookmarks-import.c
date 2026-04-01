@@ -372,7 +372,7 @@ ephy_bookmarks_import_from_firefox (EphyBookmarksManager  *manager,
     else
       g_sequence_prepend (bookmarks, bookmark);
 
-    // keyword is set and not empty string
+    /* keyword is set and not empty string */
     if (keyword && keyword[0] != '\0') {
       ephy_bookmark_set_keyword (bookmark, keyword);
     }
