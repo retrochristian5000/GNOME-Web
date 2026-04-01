@@ -305,10 +305,11 @@ ephy_bookmarks_import_from_firefox (EphyBookmarksManager  *manager,
   gboolean ret = TRUE;
   gchar *filename;
   GError *my_error = NULL;
-  const char *statement_str = "SELECT b.id, p.url, b.title, b.dateAdded, b.guid, g.title "
+  const char *statement_str = "SELECT b.id, p.url, b.title, b.dateAdded, b.guid, g.title, k.keyword"
                               "FROM moz_bookmarks b "
                               "JOIN moz_places p ON b.fk=p.id "
                               "JOIN moz_bookmarks g ON b.parent=g.id "
+                              "JOIN moz_keywords k LEFT ON p.id=k.place_id "
                               "WHERE b.type=1 AND p.url NOT LIKE 'about%' "
                               "               AND p.url NOT LIKE 'place%' "
                               "               AND b.title IS NOT NULL "
@@ -354,6 +355,7 @@ ephy_bookmarks_import_from_firefox (EphyBookmarksManager  *manager,
     gint64 time_added = ephy_sqlite_statement_get_column_as_int64 (statement, 3);
     const char *guid = ephy_sqlite_statement_get_column_as_string (statement, 4);
     const char *parent_title = ephy_sqlite_statement_get_column_as_string (statement, 5);
+    const char *keyword = ephy_sqlite_statement_get_column_as_string (statement, 6);
     EphyBookmark *bookmark;
     GSequence *tags;
 
@@ -369,6 +371,11 @@ ephy_bookmarks_import_from_firefox (EphyBookmarksManager  *manager,
       g_sequence_prepend (bookmarks, get_existing_bookmark (url, tags, manager));
     else
       g_sequence_prepend (bookmarks, bookmark);
+
+    // keyword is set and not empty string
+    if (keyword && keyword[0] != '\0') {
+      ephy_bookmark_set_keyword (bookmark, keyword);
+    }
   }
 
   if (my_error) {

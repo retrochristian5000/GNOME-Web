@@ -174,9 +174,8 @@ add_bookmark_to_html (EphyBookmark *bookmark,
                           ephy_bookmark_get_url (bookmark),
                           ephy_bookmark_get_time_added (bookmark),
                           tags ? tags->str : "");
-  if (keyword) {
+  if (keyword)
     g_string_append_printf (html, " SHORTCUTURL=\"%s\"", keyword);
-  }
   g_string_append_printf (html, ">%s</A>\n", ephy_bookmark_get_title (bookmark));
 }
 
