@@ -305,7 +305,7 @@ ephy_bookmarks_import_from_firefox (EphyBookmarksManager  *manager,
   gboolean ret = TRUE;
   gchar *filename;
   GError *my_error = NULL;
-  const char *statement_str = "SELECT b.id, p.url, b.title, b.dateAdded, b.guid, g.title, k.keyword"
+  const char *statement_str = "SELECT b.id, p.url, b.title, b.dateAdded, b.guid, g.title, k.keyword "
                               "FROM moz_bookmarks b "
                               "JOIN moz_places p ON b.fk=p.id "
                               "JOIN moz_bookmarks g ON b.parent=g.id "
