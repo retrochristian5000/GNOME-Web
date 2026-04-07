@@ -309,7 +309,7 @@ ephy_bookmarks_import_from_firefox (EphyBookmarksManager  *manager,
                               "FROM moz_bookmarks b "
                               "JOIN moz_places p ON b.fk=p.id "
                               "JOIN moz_bookmarks g ON b.parent=g.id "
-                              "JOIN moz_keywords k LEFT ON p.id=k.place_id "
+                              "LEFT JOIN moz_keywords k ON p.id=k.place_id "
                               "WHERE b.type=1 AND p.url NOT LIKE 'about%' "
                               "               AND p.url NOT LIKE 'place%' "
                               "               AND b.title IS NOT NULL "
