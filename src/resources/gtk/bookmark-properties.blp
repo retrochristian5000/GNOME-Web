@@ -129,9 +129,10 @@ template $EphyBookmarkProperties: Adw.Dialog {
             }
           }
 
-          ScrolledWindow {
+          ScrolledWindow tag_scrolled_window {
             hscrollbar-policy: never;
             propagate-natural-height: true;
+            max-content-height: 624;
 
             child: ListBox tag_list {
               selection-mode: none;

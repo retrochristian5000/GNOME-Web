@@ -54,6 +54,7 @@ struct _EphyBookmarkProperties {
   GtkWidget *remove_button;
   GtkWidget *add_tag_row;
   GtkWidget *tag_list;
+  GtkWidget *tag_scrolled_window;
 };
 
 G_DEFINE_FINAL_TYPE (EphyBookmarkProperties, ephy_bookmark_properties, ADW_TYPE_DIALOG)
@@ -203,6 +204,54 @@ ephy_bookmark_properties_actions_add_tag (EphyBookmarkProperties *self)
   gtk_widget_grab_focus (GTK_WIDGET (self->add_tag_row));
 }
 
+/**
+ * ephy_bookmark_properties_update_tag_list_height:
+ * @self: an #EphyBookmarkProperties
+ *
+ * Manually updates the ScrolledWindow height. We do this as a workaround
+ * for 'propagate-natural-height: true' failing to resize dynamically.
+ * Calculates height based on rows and caps it at the UI template's maximum.
+ */
+static void
+ephy_bookmark_properties_update_tag_list_height (EphyBookmarkProperties *self)
+{
+  GSequence *tags;
+  GtkListBoxRow *row;
+  int n_tag;
+  int max_height;
+  int row_height = 0;
+  int total_height;
+  int margins;
+
+  tags = ephy_bookmarks_manager_get_tags (self->manager);
+  n_tag = g_sequence_get_length (tags);
+
+  if (n_tag == 0)
+    return;
+
+  row = gtk_list_box_get_row_at_index (GTK_LIST_BOX (self->tag_list), 0);
+  if (row) {
+    GtkRequisition nat;
+    gtk_widget_get_preferred_size (GTK_WIDGET (row), NULL, &nat);
+    row_height = nat.height;
+  }
+
+  max_height = gtk_scrolled_window_get_max_content_height (GTK_SCROLLED_WINDOW (self->tag_scrolled_window));
+
+  total_height = (n_tag * row_height);
+
+  if (n_tag > 1) {
+    margins = gtk_widget_get_margin_top (GTK_WIDGET (self->tag_list)) +
+              gtk_widget_get_margin_bottom (GTK_WIDGET (self->tag_list));
+    total_height += margins;
+  }
+
+  if (total_height > max_height)
+    total_height = max_height;
+
+  gtk_scrolled_window_set_min_content_height (GTK_SCROLLED_WINDOW (self->tag_scrolled_window), total_height);
+}
+
 static void
 ephy_bookmark_properties_actions_remove_bookmark (EphyBookmarkProperties *self)
 {
@@ -272,6 +321,7 @@ ephy_bookmark_properties_bookmark_tag_added_cb (EphyBookmarkProperties *self,
   g_assert (EPHY_IS_BOOKMARK (bookmark));
   g_assert (EPHY_IS_BOOKMARKS_MANAGER (manager));
 
+  ephy_bookmark_properties_update_tag_list_height (self);
   self->bookmark_is_modified = TRUE;
 }
 
@@ -286,6 +336,7 @@ ephy_bookmark_properties_bookmark_tag_removed_cb (EphyBookmarkProperties *self,
   g_assert (EPHY_IS_BOOKMARKS_MANAGER (manager));
   g_assert (tag);
 
+  ephy_bookmark_properties_update_tag_list_height (self);
   self->bookmark_is_modified = TRUE;
 }
 
@@ -447,6 +498,8 @@ ephy_bookmark_properties_constructed (GObject *object)
     gtk_list_box_insert (GTK_LIST_BOX (self->tag_list), widget, -1);
   }
 
+  ephy_bookmark_properties_update_tag_list_height (self);
+
   adw_dialog_set_focus (ADW_DIALOG (self), self->name_row);
 }
 
@@ -502,6 +555,7 @@ ephy_bookmark_properties_class_init (EphyBookmarkPropertiesClass *klass)
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkProperties, tag_list);
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkProperties, header_bar);
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkProperties, tag_header_bar);
+  gtk_widget_class_bind_template_child (widget_class, EphyBookmarkProperties, tag_scrolled_window);
 
   gtk_widget_class_bind_template_callback (widget_class, on_tags_activated);
   gtk_widget_class_bind_template_callback (widget_class, on_add_tag_entry_changed);
