@@ -110,4 +110,46 @@
           gpa:transition-easing='ease-in-out'
           gpa:transition-duration='200ms'>
   </path>
+  <path
+          id='popup-blocked-1'
+          opacity='1'
+          fill='none'
+          stroke='url("#gpa:foreground") rgb(0,0,0)'
+          stroke-width='2'
+          stroke-linecap='round'
+          stroke-linejoin='round'
+          d='M 9.648276,13 H 8 5 C 3.89543,13 3,12.104569 3,11 V 6.351724 M 3,3 C 3,2.4477152 3.223858,1.9477152 3.585786,1.5857864 3.947715,1.2238576 4.447715,1 5,1 h 8 c 1.104569,0 2,0.8954304 2,2 v 8 c 0,1.104569 -0.89543,2 -2,2'
+          gpa:states='3'
+          gpa:transition-type='fade'
+          gpa:transition-easing='ease-in-out'
+          gpa:transition-duration='200ms'>
+  </path>
+  <path
+          id='popup-blocked-2'
+          opacity='1'
+          fill='none'
+          stroke='url("#gpa:foreground") rgb(0,0,0)'
+          stroke-width='1'
+          stroke-linecap='round'
+          stroke-linejoin='round'
+          d='M 3,3.5034483 H 15'
+          gpa:states='3'
+          gpa:transition-type='fade'
+          gpa:transition-easing='ease-in-out'
+          gpa:transition-duration='200ms'>
+  </path>
+  <path
+          id='popup-blocked-3'
+          opacity='1'
+          fill='none'
+          stroke='url("#gpa:foreground") rgb(0,0,0)'
+          stroke-width='2'
+          stroke-linecap='round'
+          stroke-linejoin='round'
+          d='M 1,1 15,15'
+          gpa:states='3'
+          gpa:transition-type='fade'
+          gpa:transition-easing='ease-in-out'
+          gpa:transition-duration='200ms'>
+  </path>
 </svg>

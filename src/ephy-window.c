@@ -2185,6 +2185,12 @@ create_web_view_cb (WebKitWebView          *web_view,
 
   if (!g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_POPUPS) &&
       !webkit_navigation_action_is_user_gesture (navigation_action)) {
+    EphyTitleWidget *title_widget = ephy_header_bar_get_title_widget (EPHY_HEADER_BAR (window->header_bar));
+    if (EPHY_IS_LOCATION_ENTRY (title_widget)) {
+      EphyLocationEntry *lentry = EPHY_LOCATION_ENTRY (title_widget);
+      EphySiteMenuButton *site_menu_button = EPHY_SITE_MENU_BUTTON (ephy_location_entry_get_site_menu_button (lentry));
+      ephy_site_menu_button_animate_popup_blocked (site_menu_button);
+    }
     return NULL;
   }
 
@@ -2514,7 +2520,20 @@ decide_navigation_policy (WebKitWebView            *web_view,
   if (decision_type == WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION &&
       !g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_POPUPS) &&
       !webkit_navigation_action_is_user_gesture (navigation_action)) {
+    EphyEmbed *embed = EPHY_GET_EMBED_FROM_EPHY_WEB_VIEW (web_view);
+
     webkit_policy_decision_ignore (decision);
+
+    if (embed == window->active_embed) {
+      EphyTitleWidget *title_widget = ephy_header_bar_get_title_widget (EPHY_HEADER_BAR (window->header_bar));
+      if (EPHY_IS_LOCATION_ENTRY (title_widget)) {
+        EphyLocationEntry *lentry = EPHY_LOCATION_ENTRY (title_widget);
+        EphySiteMenuButton *site_menu_button = EPHY_SITE_MENU_BUTTON (ephy_location_entry_get_site_menu_button (lentry));
+        ephy_site_menu_button_animate_popup_blocked (site_menu_button);
+      }
+    } else {
+      ephy_embed_set_animate_popup_blocked (embed, TRUE);
+    }
     return TRUE;
   }
 
@@ -2889,6 +2908,11 @@ ephy_window_connect_active_embed (EphyWindow *window)
     if (ephy_embed_get_animate_reader_mode (embed)) {
       ephy_site_menu_button_animate_reader_mode (site_menu_button);
       ephy_embed_set_animate_reader_mode (embed, FALSE);
+    }
+
+    if (ephy_embed_get_animate_popup_blocked (embed)) {
+      ephy_site_menu_button_animate_popup_blocked (site_menu_button);
+      ephy_embed_set_animate_popup_blocked (embed, FALSE);
     }
   }
 

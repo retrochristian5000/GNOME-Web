@@ -54,6 +54,8 @@ void       ephy_site_menu_button_animate_reader_mode (EphySiteMenuButton *self);
 
 void       ephy_site_menu_button_animate_search_engine (EphySiteMenuButton *self);
 
+void       ephy_site_menu_button_animate_popup_blocked (EphySiteMenuButton *self);
+
 void       ephy_site_menu_button_cancel_animation (EphySiteMenuButton *self);
 
 G_END_DECLS

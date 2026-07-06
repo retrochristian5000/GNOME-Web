@@ -153,8 +153,10 @@ ephy_site_menu_button_dispose (GObject *object)
 
   g_clear_handle_id (&self->timeout_id, g_source_remove);
 
-  g_array_free (self->queued_states, TRUE);
-  self->queued_states = NULL;
+  if (self->queued_states) {
+    g_array_free (self->queued_states, TRUE);
+    self->queued_states = NULL;
+  }
 
   gtk_widget_unparent (self->popover_menu);
 
@@ -203,6 +205,8 @@ ephy_site_menu_button_init (EphySiteMenuButton *self)
 
   gtk_widget_init_template (GTK_WIDGET (self));
 
+  self->queued_states = g_array_new (FALSE, FALSE, sizeof (int));
+
   g_menu_append_section (self->menu_model, NULL, self->items_section);
 
   gtk_widget_set_parent (self->popover_menu, GTK_WIDGET (self));
@@ -223,8 +227,6 @@ ephy_site_menu_button_init (EphySiteMenuButton *self)
   g_signal_connect_object (manager, "bookmark-removed",
                            G_CALLBACK (on_bookmark_removed), self,
                            G_CONNECT_SWAPPED);
-
-  self->queued_states = g_array_new (FALSE, FALSE, sizeof (int));
 }
 
 GtkWidget *
@@ -429,6 +431,29 @@ ephy_site_menu_button_animate_search_engine (EphySiteMenuButton *self)
 
   g_clear_handle_id (&self->timeout_id, g_source_remove);
   self->timeout_id = g_timeout_add_once (EPHY_ANIMATION_DELAY, (GSourceOnceFunc)on_animation_timeout, self);
+}
+
+void
+ephy_site_menu_button_animate_popup_blocked (EphySiteMenuButton *self)
+{
+  int delay = adw_get_enable_animations (GTK_WIDGET (self)) ? 1400 : 1500;
+
+  self->do_animation = TRUE;
+
+  if (self->is_animating) {
+    int queued_state = 3;
+
+    LOG ("Queuing future state 3 (popup blocked)");
+    g_array_append_val (self->queued_states, queued_state);
+    return;
+  }
+
+  LOG ("Changing state to 3 (popup blocked)");
+  self->is_animating = TRUE;
+  gtk_svg_set_state (self->svg, 3);
+
+  g_clear_handle_id (&self->timeout_id, g_source_remove);
+  self->timeout_id = g_timeout_add_once (delay, (GSourceOnceFunc)on_animation_timeout, self);
 }
 
 void

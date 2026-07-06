@@ -91,6 +91,7 @@ struct _EphyEmbed {
   gboolean first_load_finished;
   gboolean animate_reader_mode;
   gboolean animate_search_engine;
+  gboolean animate_popup_blocked;
 };
 
 G_DEFINE_FINAL_TYPE (EphyEmbed, ephy_embed, GTK_TYPE_BOX)
@@ -325,6 +326,19 @@ ephy_embed_set_animate_search_engine (EphyEmbed *embed,
                                       gboolean   animate)
 {
   embed->animate_search_engine = animate;
+}
+
+gboolean
+ephy_embed_get_animate_popup_blocked (EphyEmbed *embed)
+{
+  return embed->animate_popup_blocked;
+}
+
+void
+ephy_embed_set_animate_popup_blocked (EphyEmbed *embed,
+                                      gboolean   animate)
+{
+  embed->animate_popup_blocked = animate;
 }
 
 static void
@@ -849,6 +863,7 @@ ephy_embed_init (EphyEmbed *embed)
   embed->first_load_finished = FALSE;
   embed->animate_reader_mode = FALSE;
   embed->animate_search_engine = TRUE;
+  embed->animate_popup_blocked = FALSE;
 }
 
 /**
