@@ -2183,6 +2183,11 @@ create_web_view_cb (WebKitWebView          *web_view,
   EphyNewTabFlags flags;
   EphyWindow *target_window;
 
+  if (!g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_POPUPS) &&
+      !webkit_navigation_action_is_user_gesture (navigation_action)) {
+    return NULL;
+  }
+
   if ((ephy_embed_shell_get_mode (ephy_embed_shell_get_default ()) != EPHY_EMBED_SHELL_MODE_APPLICATION) &&
       (g_settings_get_boolean (EPHY_SETTINGS_MAIN,
                                EPHY_PREFS_NEW_WINDOWS_IN_TABS) ||
