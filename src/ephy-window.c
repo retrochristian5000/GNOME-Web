@@ -208,7 +208,17 @@ struct _EphyWindow {
   guint go_to_previous_tab: 1;
 
   GHashTable *action_groups;
+  GHashTable *pending_popup_requests;
 };
+
+static void permission_requested_cb (EphyWebView             *view,
+                                     EphyPermissionType       permission_type,
+                                     WebKitPermissionRequest *request,
+                                     const char              *origin,
+                                     EphyWindow              *window);
+
+static void update_allow_popups (EphyWindow  *window,
+                                 EphyWebView *view);
 
 typedef enum {
   PROP_ACTIVE_CHILD = 1,
@@ -1287,6 +1297,8 @@ sync_tab_address (EphyWebView *view,
                                                 !!bookmark);
   }
 
+  update_allow_popups (window, view);
+
   g_free (location);
 }
 
@@ -2173,6 +2185,34 @@ web_view_ready_cb (WebKitWebView *web_view,
   return TRUE;
 }
 
+static gboolean
+ephy_window_is_popup_allowed (EphyWindow    *window,
+                              WebKitWebView *web_view)
+{
+  const char *address;
+  g_autofree char *origin = NULL;
+  EphyPermission popup_permission = EPHY_PERMISSION_UNDECIDED;
+
+  address = webkit_web_view_get_uri (web_view);
+  if (address)
+    origin = ephy_uri_to_security_origin (address);
+
+  if (origin) {
+    EphyPermissionsManager *permissions_manager;
+    permissions_manager = ephy_embed_shell_get_permissions_manager (ephy_embed_shell_get_default ());
+    popup_permission = ephy_permissions_manager_get_permission (permissions_manager,
+                                                                EPHY_PERMISSION_TYPE_POPUPS,
+                                                                origin);
+  }
+
+  if (popup_permission == EPHY_PERMISSION_PERMIT)
+    return TRUE;
+  else if (popup_permission == EPHY_PERMISSION_DENY)
+    return FALSE;
+
+  return g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_POPUPS);
+}
+
 static WebKitWebView *
 create_web_view_cb (WebKitWebView          *web_view,
                     WebKitNavigationAction *navigation_action,
@@ -2182,15 +2222,29 @@ create_web_view_cb (WebKitWebView          *web_view,
   WebKitWebView *new_web_view;
   EphyNewTabFlags flags;
   EphyWindow *target_window;
+  gboolean is_popup_allowed = ephy_window_is_popup_allowed (window, web_view);
+  gboolean is_user_gesture = webkit_navigation_action_is_user_gesture (navigation_action);
 
-  if (!g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_POPUPS) &&
-      !webkit_navigation_action_is_user_gesture (navigation_action)) {
+  if (!is_popup_allowed && !is_user_gesture) {
     EphyTitleWidget *title_widget = ephy_header_bar_get_title_widget (EPHY_HEADER_BAR (window->header_bar));
+    const char *address = webkit_web_view_get_uri (web_view);
+    g_autofree char *origin = address ? ephy_uri_to_security_origin (address) : NULL;
+
     if (EPHY_IS_LOCATION_ENTRY (title_widget)) {
       EphyLocationEntry *lentry = EPHY_LOCATION_ENTRY (title_widget);
       EphySiteMenuButton *site_menu_button = EPHY_SITE_MENU_BUTTON (ephy_location_entry_get_site_menu_button (lentry));
       ephy_site_menu_button_animate_popup_blocked (site_menu_button);
     }
+
+    if (origin) {
+      EphyPermissionsManager *permissions_manager = ephy_embed_shell_get_permissions_manager (ephy_embed_shell_get_default ());
+      EphyPermission popup_permission = ephy_permissions_manager_get_permission (permissions_manager,
+                                                                                 EPHY_PERMISSION_TYPE_POPUPS,
+                                                                                 origin);
+      if (popup_permission == EPHY_PERMISSION_UNDECIDED)
+        permission_requested_cb (EPHY_WEB_VIEW (web_view), EPHY_PERMISSION_TYPE_POPUPS, NULL, origin, window);
+    }
+
     return NULL;
   }
 
@@ -2518,9 +2572,11 @@ decide_navigation_policy (WebKitWebView            *web_view,
   }
 
   if (decision_type == WEBKIT_POLICY_DECISION_TYPE_NEW_WINDOW_ACTION &&
-      !g_settings_get_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_POPUPS) &&
+      !ephy_window_is_popup_allowed (window, web_view) &&
       !webkit_navigation_action_is_user_gesture (navigation_action)) {
     EphyEmbed *embed = EPHY_GET_EMBED_FROM_EPHY_WEB_VIEW (web_view);
+    const char *address = webkit_web_view_get_uri (web_view);
+    g_autofree char *origin = address ? ephy_uri_to_security_origin (address) : NULL;
 
     webkit_policy_decision_ignore (decision);
 
@@ -2534,6 +2590,16 @@ decide_navigation_policy (WebKitWebView            *web_view,
     } else {
       ephy_embed_set_animate_popup_blocked (embed, TRUE);
     }
+
+    if (origin) {
+      EphyPermissionsManager *permissions_manager = ephy_embed_shell_get_permissions_manager (ephy_embed_shell_get_default ());
+      EphyPermission popup_permission = ephy_permissions_manager_get_permission (permissions_manager,
+                                                                                 EPHY_PERMISSION_TYPE_POPUPS,
+                                                                                 origin);
+      if (popup_permission == EPHY_PERMISSION_UNDECIDED)
+        permission_requested_cb (EPHY_WEB_VIEW (web_view), EPHY_PERMISSION_TYPE_POPUPS, NULL, origin, window);
+    }
+
     return TRUE;
   }
 
@@ -3168,6 +3234,50 @@ download_only_load_cb (EphyWebView *view,
 }
 
 static void
+update_allow_popups (EphyWindow  *window,
+                     EphyWebView *view)
+{
+  EphyEmbed *active_embed;
+  EphyWebView *active_view;
+  const char *address;
+  g_autofree char *origin = NULL;
+  gboolean active = FALSE;
+  WebKitSettings *settings;
+
+  active_embed = window->active_embed;
+  if (!active_embed)
+    return;
+
+  active_view = ephy_embed_get_web_view (active_embed);
+  if (active_view != view)
+    return;
+
+  address = webkit_web_view_get_uri (WEBKIT_WEB_VIEW (view));
+  if (address)
+    origin = ephy_uri_to_security_origin (address);
+
+  if (origin) {
+    EphyPermissionsManager *permissions_manager = ephy_embed_shell_get_permissions_manager (ephy_embed_shell_get_default ());
+    EphyPermission permission = ephy_permissions_manager_get_permission (permissions_manager,
+                                                                         EPHY_PERMISSION_TYPE_POPUPS,
+                                                                         origin);
+    if (permission == EPHY_PERMISSION_PERMIT)
+      active = TRUE;
+    else if (permission == EPHY_PERMISSION_DENY)
+      active = FALSE;
+    else
+      active = TRUE;
+  } else {
+    active = TRUE;
+  }
+
+  settings = ephy_embed_prefs_get_settings ();
+  g_object_set (settings, "javascript-can-open-windows-automatically", active, NULL);
+}
+
+
+
+static void
 update_reader_mode (EphyWindow  *window,
                     EphyWebView *view,
                     gboolean     update_entry)
@@ -3235,6 +3345,8 @@ ephy_permission_request_data_new (WebKitPermissionRequest *request,
 {
   EphyPermissionRequestData *data = g_new (EphyPermissionRequestData, 1);
 
+  g_assert (request);
+
   data->request = g_object_ref (request);
   data->permission_type = permission_type;
   data->origin = g_strdup (origin);
@@ -3249,6 +3361,13 @@ ephy_permission_request_data_free (EphyPermissionRequestData *data)
   g_free (data->origin);
 
   g_free (data);
+}
+
+static void
+free_pending_popup_requests_list (gpointer data)
+{
+  GList *list = (GList *)data;
+  g_list_free_full (list, g_free);
 }
 
 static void
@@ -3276,24 +3395,35 @@ set_permission (EphyPermissionRequestData *data,
                                                       : EPHY_PERMISSION_DENY);
   }
 
+  if (data->permission_type == EPHY_PERMISSION_TYPE_POPUPS) {
+    EphyWindow *window = EPHY_WINDOW (gtk_application_get_active_window (GTK_APPLICATION (shell)));
+    if (window) {
+      EphyEmbed *embed = window->active_embed;
+      if (embed) {
+        EphyWebView *view = ephy_embed_get_web_view (embed);
+        update_allow_popups (window, view);
+      }
+    }
+  }
+
   ephy_permission_request_data_free (data);
 }
 
 static void
 on_permission_allow (AdwAlertDialog            *self,
-                     char                      *response,
                      EphyPermissionRequestData *data)
 {
-  webkit_permission_request_allow (data->request);
+  if (data->request)
+    webkit_permission_request_allow (data->request);
   set_permission (data, TRUE);
 }
 
 static void
 on_permission_deny (AdwAlertDialog            *self,
-                    char                      *response,
                     EphyPermissionRequestData *data)
 {
-  webkit_permission_request_deny (data->request);
+  if (data->request)
+    webkit_permission_request_deny (data->request);
   set_permission (data, FALSE);
 }
 
@@ -3350,6 +3480,13 @@ permission_dialog_get_text (EphyPermissionRequestData  *data,
       *message = g_strdup_printf ("The page at “%s” would like to share your screen",
                                   bold_origin);
       break;
+    case EPHY_PERMISSION_TYPE_POPUPS:
+      /* Translators: Popup policy for a specific site. */
+      *title = g_strdup (_("Pop-up Request"));
+      /* Translators: Popup policy for a specific site. */
+      *message = g_strdup_printf (_("The page at “%s” would like to show pop-up windows"),
+                                  bold_origin);
+      break;
     case EPHY_PERMISSION_TYPE_WEBSITE_DATA_ACCESS:
       requesting_domain = webkit_website_data_access_permission_request_get_requesting_domain (WEBKIT_WEBSITE_DATA_ACCESS_PERMISSION_REQUEST (data->request));
       current_domain = webkit_website_data_access_permission_request_get_current_domain (WEBKIT_WEBSITE_DATA_ACCESS_PERMISSION_REQUEST (data->request));
@@ -3372,6 +3509,57 @@ permission_dialog_get_text (EphyPermissionRequestData  *data,
 }
 
 static void
+on_popup_permission_response (AdwAlertDialog *self,
+                              const char     *response,
+                              char           *origin)
+{
+  GtkRoot *root = gtk_widget_get_root (GTK_WIDGET (self));
+  EphyWindow *window = EPHY_IS_WINDOW (root) ? EPHY_WINDOW (root) : NULL;
+  GList *list;
+
+  if (!window) {
+    EphyEmbedShell *shell = ephy_embed_shell_get_default ();
+    window = EPHY_WINDOW (gtk_application_get_active_window (GTK_APPLICATION (shell)));
+  }
+
+  if (!window || !window->pending_popup_requests) {
+    g_free (origin);
+    return;
+  }
+
+  list = g_hash_table_lookup (window->pending_popup_requests, origin);
+  if (list) {
+    gboolean is_allow = g_strcmp0 (response, "allow") == 0;
+    gboolean is_deny = g_strcmp0 (response, "deny") == 0;
+
+    EphyEmbedShell *shell = ephy_embed_shell_get_default ();
+    EphyPermissionsManager *permissions_manager = ephy_embed_shell_get_permissions_manager (shell);
+    EphyEmbed *embed = window->active_embed;
+
+    if (is_allow) {
+      ephy_permissions_manager_set_permission (permissions_manager,
+                                               EPHY_PERMISSION_TYPE_POPUPS,
+                                               origin,
+                                               EPHY_PERMISSION_PERMIT);
+    } else if (is_deny) {
+      ephy_permissions_manager_set_permission (permissions_manager,
+                                               EPHY_PERMISSION_TYPE_POPUPS,
+                                               origin,
+                                               EPHY_PERMISSION_DENY);
+    }
+
+    if (embed) {
+      EphyWebView *view = ephy_embed_get_web_view (embed);
+      update_allow_popups (window, view);
+    }
+
+    g_hash_table_remove (window->pending_popup_requests, origin);
+  }
+
+  g_free (origin);
+}
+
+static void
 permission_requested_cb (EphyWebView             *view,
                          EphyPermissionType       permission_type,
                          WebKitPermissionRequest *request,
@@ -3386,24 +3574,62 @@ permission_requested_cb (EphyWebView             *view,
   if (!gtk_widget_is_visible (GTK_WIDGET (window)))
     return;
 
-  data = ephy_permission_request_data_new (request, permission_type, origin);
-  permission_dialog_get_text (data, &title, &message);
-  dialog = adw_alert_dialog_new (title, message);
+  if (permission_type == EPHY_PERMISSION_TYPE_POPUPS) {
+    g_autofree char *bold_origin = NULL;
+    GList *list;
 
-  adw_alert_dialog_add_responses (ADW_ALERT_DIALOG (dialog),
-                                  "close", _("_Ask Later"),
-                                  "deny", _("_Deny"),
-                                  "allow", _("_Allow"),
-                                  NULL);
+    if (!window->pending_popup_requests) {
+      window->pending_popup_requests = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, free_pending_popup_requests_list);
+    }
 
-  adw_alert_dialog_set_body_use_markup (ADW_ALERT_DIALOG (dialog), TRUE);
-  adw_alert_dialog_set_response_appearance (ADW_ALERT_DIALOG (dialog), "deny", ADW_RESPONSE_DESTRUCTIVE);
-  adw_alert_dialog_set_response_appearance (ADW_ALERT_DIALOG (dialog), "allow", ADW_RESPONSE_SUGGESTED);
-  adw_alert_dialog_set_default_response (ADW_ALERT_DIALOG (dialog), "close");
-  adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (dialog), "close");
+    list = g_hash_table_lookup (window->pending_popup_requests, origin);
+    if (list != NULL) {
+      list = g_list_append (list, g_strdup (origin));
+      return;
+    }
 
-  g_signal_connect (dialog, "response::allow", G_CALLBACK (on_permission_allow), data);
-  g_signal_connect (dialog, "response::deny", G_CALLBACK (on_permission_deny), data);
+    list = g_list_append (NULL, g_strdup (origin));
+    g_hash_table_insert (window->pending_popup_requests, g_strdup (origin), list);
+
+    bold_origin = g_markup_printf_escaped ("<b>%s</b>", origin);
+    title = g_strdup (_("Pop-up Request"));
+    message = g_strdup_printf (_("The page at “%s” would like to show pop-up windows"), bold_origin);
+    dialog = adw_alert_dialog_new (title, message);
+
+    adw_alert_dialog_add_responses (ADW_ALERT_DIALOG (dialog),
+                                    "close", _("_Ask Later"),
+                                    "deny", _("_Deny"),
+                                    "allow", _("_Allow"),
+                                    NULL);
+
+    adw_alert_dialog_set_body_use_markup (ADW_ALERT_DIALOG (dialog), TRUE);
+    adw_alert_dialog_set_response_appearance (ADW_ALERT_DIALOG (dialog), "deny", ADW_RESPONSE_DESTRUCTIVE);
+    adw_alert_dialog_set_response_appearance (ADW_ALERT_DIALOG (dialog), "allow", ADW_RESPONSE_SUGGESTED);
+    adw_alert_dialog_set_default_response (ADW_ALERT_DIALOG (dialog), "close");
+    adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (dialog), "close");
+
+    g_signal_connect (dialog, "response", G_CALLBACK (on_popup_permission_response), g_strdup (origin));
+  } else {
+    data = ephy_permission_request_data_new (request, permission_type, origin);
+
+    permission_dialog_get_text (data, &title, &message);
+    dialog = adw_alert_dialog_new (title, message);
+
+    adw_alert_dialog_add_responses (ADW_ALERT_DIALOG (dialog),
+                                    "close", _("_Ask Later"),
+                                    "deny", _("_Deny"),
+                                    "allow", _("_Allow"),
+                                    NULL);
+
+    adw_alert_dialog_set_body_use_markup (ADW_ALERT_DIALOG (dialog), TRUE);
+    adw_alert_dialog_set_response_appearance (ADW_ALERT_DIALOG (dialog), "deny", ADW_RESPONSE_DESTRUCTIVE);
+    adw_alert_dialog_set_response_appearance (ADW_ALERT_DIALOG (dialog), "allow", ADW_RESPONSE_SUGGESTED);
+    adw_alert_dialog_set_default_response (ADW_ALERT_DIALOG (dialog), "close");
+    adw_alert_dialog_set_close_response (ADW_ALERT_DIALOG (dialog), "close");
+
+    g_signal_connect (dialog, "response::allow", G_CALLBACK (on_permission_allow), data);
+    g_signal_connect (dialog, "response::deny", G_CALLBACK (on_permission_deny), data);
+  }
 
   adw_dialog_present (dialog, GTK_WIDGET (window));
 }
@@ -3766,6 +3992,7 @@ tab_view_notify_selected_page_cb (EphyWindow *window)
   /* update new tab */
   ephy_window_set_active_tab (window, embed);
 
+  update_allow_popups (window, view);
   update_reader_mode (window, view, FALSE);
 }
 
@@ -3963,6 +4190,7 @@ ephy_window_dispose (GObject *object)
     g_clear_weak_pointer (&window->previous_embed);
     g_clear_pointer (&window->action_labels, g_hash_table_unref);
     g_clear_pointer (&window->action_groups, g_hash_table_unref);
+    g_clear_pointer (&window->pending_popup_requests, g_hash_table_unref);
   }
 
   G_OBJECT_CLASS (ephy_window_parent_class)->dispose (object);
@@ -4859,6 +5087,7 @@ ephy_window_init (EphyWindow *window)
   window->uid = window_uid++;
   window->adaptive_mode = EPHY_ADAPTIVE_MODE_NORMAL;
   window->go_to_previous_tab = TRUE;
+  window->pending_popup_requests = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, free_pending_popup_requests_list);
 
   gtk_window_group_add_window (window_group, GTK_WINDOW (window));
   ephy_shell_register_window (shell, window);
