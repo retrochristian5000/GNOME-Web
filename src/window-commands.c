@@ -2560,6 +2560,28 @@ screenshot_session_finished_cb (EphyScreenshotSession *session,
   g_object_set_data (G_OBJECT (window), SCREENSHOT_SESSION_KEY, NULL);
 }
 
+static char *
+get_screenshot_filename (EphyEmbed *embed)
+{
+  g_autoptr (GDateTime) now = g_date_time_new_now_local ();
+  g_autofree char *timestamp = NULL;
+  const char *title;
+
+  /* Translators: default file name for a screenshot, strftime format. The
+   * date and the time may be reordered, but the result must be usable as a
+   * file name. e.g. "Screenshot 2026-02-12 at 15-34-56"
+   */
+  timestamp = g_date_time_format (now, _("Screenshot %Y-%m-%d at %H-%M-%S"));
+  if (!timestamp)
+    timestamp = g_date_time_format (now, "%Y-%m-%d %H-%M-%S");
+
+  title = ephy_embed_get_title (embed);
+  if (!title || *title == '\0')
+    return g_strconcat (timestamp, ".png", NULL);
+
+  return g_strconcat (timestamp, " ", title, ".png", NULL);
+}
+
 void
 window_cmd_screenshot (GSimpleAction *action,
                        GVariant      *parameter,
@@ -2579,7 +2601,7 @@ window_cmd_screenshot (GSimpleAction *action,
     return;
   }
 
-  suggested_filename = ephy_sanitize_filename (get_suggested_filename (embed, ".png"));
+  suggested_filename = ephy_sanitize_filename (get_screenshot_filename (embed));
 
   session = ephy_screenshot_session_new (window, embed, suggested_filename);
   g_signal_connect_object (session, "finished",
