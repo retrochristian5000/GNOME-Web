@@ -47,6 +47,7 @@ struct _EphyBookmarkProperties {
   GtkWidget *tag_header_bar;
   GtkWidget *navigation_view;
   GtkWidget *name_row;
+  GtkWidget *keyword_row;
   GtkWidget *address_row;
   GtkWidget *cancel_button;
   GtkWidget *add_button;
@@ -403,6 +404,7 @@ ephy_bookmark_properties_constructed (GObject *object)
   GSequence *bookmark_tags;
   GSequenceIter *iter;
   const char *address;
+  const char *keyword;
   g_autofree char *decoded_address = NULL;
 
   G_OBJECT_CLASS (ephy_bookmark_properties_parent_class)->constructed (object);
@@ -425,6 +427,15 @@ ephy_bookmark_properties_constructed (GObject *object)
                                G_BINDING_SYNC_CREATE,
                                transform_bookmark_url, NULL,
                                self, NULL);
+
+  /* Set text for keyword entry */
+  keyword = ephy_bookmark_get_keyword (self->bookmark);
+  if (keyword)
+    gtk_editable_set_text (GTK_EDITABLE (self->keyword_row), keyword);
+
+  g_object_bind_property (GTK_EDITABLE (self->keyword_row), "text",
+                          self->bookmark, "keyword",
+                          G_BINDING_DEFAULT);
 
   gtk_accessible_update_property (GTK_ACCESSIBLE (self->address_row),
                                   GTK_ACCESSIBLE_PROPERTY_REQUIRED, TRUE,
@@ -498,6 +509,7 @@ ephy_bookmark_properties_class_init (EphyBookmarkPropertiesClass *klass)
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkProperties, navigation_view);
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkProperties, name_row);
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkProperties, address_row);
+  gtk_widget_class_bind_template_child (widget_class, EphyBookmarkProperties, keyword_row);
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkProperties, cancel_button);
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkProperties, add_button);
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarkProperties, remove_button);

@@ -57,17 +57,27 @@ get_bookmarks_from_table (GvdbTable *table)
     GSequence *tags;
     char *tag;
     const char *title;
+    const char *keyword = NULL;
     gint64 time_added;
     char *id;
     gint64 server_time_modified;
     gboolean is_uploaded;
+    const char *v0_variant_format = "(x&s&sxbas)";
+    const char *v1_variant_format = "(x&s&sm&sxbas)";
 
     /* Obtain the corresponding GVariant. */
     value = gvdb_table_get_value (table, list[i]);
 
-    g_variant_get (value, "(x&s&sxbas)",
-                   &time_added, &title, &id,
-                   &server_time_modified, &is_uploaded, &iter);
+    /* Check for old format without keyword */
+    if (g_variant_check_format_string (value, v0_variant_format, FALSE)) {
+      g_variant_get (value, v0_variant_format,
+                     &time_added, &title, &id,
+                     &server_time_modified, &is_uploaded, &iter);
+    } else {
+      g_variant_get (value, v1_variant_format,
+                     &time_added, &title, &id, &keyword,
+                     &server_time_modified, &is_uploaded, &iter);
+    }
 
     /* Add all stored tags in a GSequence. */
     tags = g_sequence_new (g_free);
@@ -80,6 +90,7 @@ get_bookmarks_from_table (GvdbTable *table)
 
     /* Create the new bookmark. */
     bookmark = ephy_bookmark_new (list[i], title, tags, id);
+    ephy_bookmark_set_keyword (bookmark, keyword);
     ephy_bookmark_set_time_added (bookmark, time_added);
     ephy_synchronizable_set_server_time_modified (EPHY_SYNCHRONIZABLE (bookmark), server_time_modified);
     ephy_bookmark_set_is_uploaded (bookmark, is_uploaded);
@@ -295,10 +306,11 @@ ephy_bookmarks_import_from_firefox (EphyBookmarksManager  *manager,
   gboolean ret = TRUE;
   gchar *filename;
   GError *my_error = NULL;
-  const char *statement_str = "SELECT b.id, p.url, b.title, b.dateAdded, b.guid, g.title "
+  const char *statement_str = "SELECT b.id, p.url, b.title, b.dateAdded, b.guid, g.title, k.keyword "
                               "FROM moz_bookmarks b "
                               "JOIN moz_places p ON b.fk=p.id "
                               "JOIN moz_bookmarks g ON b.parent=g.id "
+                              "LEFT JOIN moz_keywords k ON p.id=k.place_id "
                               "WHERE b.type=1 AND p.url NOT LIKE 'about%' "
                               "               AND p.url NOT LIKE 'place%' "
                               "               AND b.title IS NOT NULL "
@@ -345,6 +357,7 @@ ephy_bookmarks_import_from_firefox (EphyBookmarksManager  *manager,
     gint64 time_added = ephy_sqlite_statement_get_column_as_int64 (statement, 3);
     const char *guid = ephy_sqlite_statement_get_column_as_string (statement, 4);
     const char *parent_title = ephy_sqlite_statement_get_column_as_string (statement, 5);
+    const char *keyword = ephy_sqlite_statement_get_column_as_string (statement, 6);
     EphyBookmark *bookmark;
     GSequence *tags;
 
@@ -360,6 +373,11 @@ ephy_bookmarks_import_from_firefox (EphyBookmarksManager  *manager,
       g_sequence_prepend (bookmarks, get_existing_bookmark (url, tags, manager));
     else
       g_sequence_prepend (bookmarks, bookmark);
+
+    /* keyword is set and not empty string */
+    if (keyword && keyword[0] != '\0') {
+      ephy_bookmark_set_keyword (bookmark, keyword);
+    }
   }
 
   if (my_error) {
@@ -404,6 +422,7 @@ typedef struct {
   GHashTable *urls_table;
   GPtrArray *tags;
   GPtrArray *urls;
+  GPtrArray *keywords;
   GPtrArray *add_dates;
   GPtrArray *titles;
   gboolean read_title;
@@ -421,6 +440,7 @@ parser_data_new ()
   data->urls_table = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, (GDestroyNotify)g_ptr_array_unref);
   data->tags = g_ptr_array_new_with_free_func (g_free);
   data->urls = g_ptr_array_new_with_free_func (g_free);
+  data->keywords = g_ptr_array_new_with_free_func (g_free);
   data->add_dates = g_ptr_array_new_with_free_func (g_free);
   data->titles = g_ptr_array_new_with_free_func (g_free);
   data->read_title = FALSE;
@@ -437,6 +457,7 @@ parser_data_free (ParserData *data)
   g_hash_table_destroy (data->urls_table);
   g_ptr_array_free (data->tags, TRUE);
   g_ptr_array_free (data->urls, TRUE);
+  g_ptr_array_free (data->keywords, TRUE);
   g_ptr_array_free (data->titles, TRUE);
   g_ptr_array_free (data->add_dates, TRUE);
   g_free (data);
@@ -474,8 +495,11 @@ xml_start_element (GMarkupParseContext  *context,
           g_ptr_array_add (data->urls, g_strdup (*values));
           data->skip_bookmark = FALSE;
         }
-      } else if (strcmp (*names, "ADD_DATE") == 0 && !data->skip_bookmark)
+      } else if (strcmp (*names, "ADD_DATE") == 0 && !data->skip_bookmark) {
         g_ptr_array_add (data->add_dates, g_strdup (*values));
+      } else if (strcmp (*names, "SHORTCUTURL") == 0 && !data->skip_bookmark) {
+        g_ptr_array_add (data->keywords, g_strdup (*values));
+      }
       names++;
       values++;
     }

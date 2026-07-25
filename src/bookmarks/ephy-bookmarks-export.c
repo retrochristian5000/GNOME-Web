@@ -42,11 +42,12 @@ build_variant (EphyBookmark *bookmark)
   GSequence *tags;
   GSequenceIter *iter;
 
-  g_variant_builder_init (&builder, G_VARIANT_TYPE ("(xssxbas)"));
+  g_variant_builder_init (&builder, G_VARIANT_TYPE ("(xssmsxbas)"));
 
   g_variant_builder_add (&builder, "x", ephy_bookmark_get_time_added (bookmark));
   g_variant_builder_add (&builder, "s", ephy_bookmark_get_title (bookmark));
   g_variant_builder_add (&builder, "s", ephy_bookmark_get_id (bookmark));
+  g_variant_builder_add (&builder, "ms", ephy_bookmark_get_keyword (bookmark));
   g_variant_builder_add (&builder, "x", ephy_synchronizable_get_server_time_modified (EPHY_SYNCHRONIZABLE (bookmark)));
   g_variant_builder_add (&builder, "b", ephy_bookmark_is_uploaded (bookmark));
 
@@ -158,20 +159,24 @@ add_bookmark_to_html (EphyBookmark *bookmark,
                       GString      *html)
 {
   GSequence *tag_sequence;
+  const char *keyword = NULL;
   g_autoptr (GString) tags = NULL;
 
   tag_sequence = ephy_bookmark_get_tags (bookmark);
+  keyword = ephy_bookmark_get_keyword (bookmark);
+
   if (tag_sequence) {
     tags = g_string_new ("");
     g_sequence_foreach (tag_sequence, (GFunc)add_tags_to_string, tags);
   }
 
-  g_string_append_printf (html,
-                          "<DT><A HREF=\"%s\" ADD_DATE=\"%ld\" TAGS=\"%s\">%s</A>\n",
+  g_string_append_printf (html, "<DT><A HREF=\"%s\" ADD_DATE=\"%ld\" TAGS=\"%s\"",
                           ephy_bookmark_get_url (bookmark),
                           ephy_bookmark_get_time_added (bookmark),
-                          tags ? tags->str : "",
-                          ephy_bookmark_get_title (bookmark));
+                          tags ? tags->str : "");
+  if (keyword)
+    g_string_append_printf (html, " SHORTCUTURL=\"%s\"", keyword);
+  g_string_append_printf (html, ">%s</A>\n", ephy_bookmark_get_title (bookmark));
 }
 
 static void

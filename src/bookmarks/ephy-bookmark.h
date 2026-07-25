@@ -42,6 +42,9 @@ const char          *ephy_bookmark_get_url                (EphyBookmark *self);
 void                 ephy_bookmark_set_title              (EphyBookmark *self,
                                                            const char   *title);
 const char          *ephy_bookmark_get_title              (EphyBookmark *self);
+void                 ephy_bookmark_set_keyword            (EphyBookmark *self,
+                                                           const char   *title);
+const char          *ephy_bookmark_get_keyword            (EphyBookmark *self);
 void                 ephy_bookmark_set_id                 (EphyBookmark *self,
                                                            const char   *id);
 const char          *ephy_bookmark_get_id                 (EphyBookmark *self);
