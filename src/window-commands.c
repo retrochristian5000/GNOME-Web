@@ -66,6 +66,7 @@
 #include "ephy-prefs-dialog.h"
 #include "ephy-prefs.h"
 #include "ephy-privacy-report.h"
+#include "ephy-screenshot-session.h"
 #include "ephy-security-dialog.h"
 #include "ephy-session.h"
 #include "ephy-settings.h"
@@ -2433,26 +2434,18 @@ take_snapshot (EphyEmbed *embed,
                                 g_filename_from_uri (file, NULL, NULL));
 }
 
-typedef enum {
-  SAVE_DIALOG_MODE_SAVE_AS,
-  SAVE_DIALOG_MODE_SCREENSHOT
-} SaveDialogMode;
-
 typedef struct {
   EphyEmbed *embed;
   char *suggested_filename;
-  SaveDialogMode mode;
 } SaveDialogAsyncData;
 
 static SaveDialogAsyncData *
-save_dialog_async_data_new (EphyEmbed      *embed,
-                            const char     *suggested_filename,
-                            SaveDialogMode  mode)
+save_dialog_async_data_new (EphyEmbed  *embed,
+                            const char *suggested_filename)
 {
   SaveDialogAsyncData *data = g_new (SaveDialogAsyncData, 1);
   data->embed = g_object_ref (embed);
   data->suggested_filename = g_strdup (suggested_filename);
-  data->mode = mode;
   return data;
 }
 
@@ -2488,7 +2481,7 @@ save_dialog_cb (GtkFileDialog       *dialog,
       /* Easter egg: allow power users to take a screenshot of anything that's
        * not a PNG by changing the suffix to .png.
        */
-      if (data->mode == SAVE_DIALOG_MODE_SCREENSHOT || (g_str_has_suffix (converted, ".png") && !g_str_has_suffix (data->suggested_filename, ".png"))) {
+      if (g_str_has_suffix (converted, ".png") && !g_str_has_suffix (data->suggested_filename, ".png")) {
         take_snapshot (data->embed, converted);
       } else {
         EphyWebView *web_view = ephy_embed_get_web_view (data->embed);
@@ -2555,7 +2548,16 @@ window_cmd_save_as (GSimpleAction *action,
                         GTK_WINDOW (window),
                         NULL,
                         (GAsyncReadyCallback)save_dialog_cb,
-                        save_dialog_async_data_new (embed, suggested_filename, SAVE_DIALOG_MODE_SAVE_AS));
+                        save_dialog_async_data_new (embed, suggested_filename));
+}
+
+#define SCREENSHOT_SESSION_KEY "ephy-screenshot-session"
+
+static void
+screenshot_session_finished_cb (EphyScreenshotSession *session,
+                                EphyWindow            *window)
+{
+  g_object_set_data (G_OBJECT (window), SCREENSHOT_SESSION_KEY, NULL);
 }
 
 void
@@ -2565,42 +2567,26 @@ window_cmd_screenshot (GSimpleAction *action,
 {
   EphyWindow *window = user_data;
   EphyEmbed *embed;
-  GtkFileDialog *dialog;
-  g_autoptr (GtkFileFilter) filter = NULL;
-  g_autoptr (GListStore) filters = NULL;
+  EphyScreenshotSession *session;
   g_autofree char *suggested_filename = NULL;
-  const char *last_directory_path;
 
   embed = ephy_embed_container_get_active_child (EPHY_EMBED_CONTAINER (window));
   g_assert (embed);
 
-  dialog = gtk_file_dialog_new ();
-
-  last_directory_path = g_settings_get_string (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_LAST_DOWNLOAD_DIRECTORY);
-
-  if (last_directory_path && last_directory_path[0]) {
-    g_autoptr (GFile) last_directory = NULL;
-
-    last_directory = g_file_new_for_path (last_directory_path);
-    gtk_file_dialog_set_initial_folder (dialog, last_directory);
+  /* Activating the action again while the overlay is up cancels it. */
+  if (g_object_get_data (G_OBJECT (window), SCREENSHOT_SESSION_KEY)) {
+    g_object_set_data (G_OBJECT (window), SCREENSHOT_SESSION_KEY, NULL);
+    return;
   }
 
-  filter = gtk_file_filter_new ();
-  gtk_file_filter_set_name (filter, _("PNG"));
-  gtk_file_filter_add_pattern (filter, "*.png");
-
-  filters = g_list_store_new (GTK_TYPE_FILE_FILTER);
-  g_list_store_append (filters, filter);
-  gtk_file_dialog_set_filters (dialog, G_LIST_MODEL (filters));
-
   suggested_filename = ephy_sanitize_filename (get_suggested_filename (embed, ".png"));
-  gtk_file_dialog_set_initial_name (dialog, suggested_filename);
 
-  gtk_file_dialog_save (dialog,
-                        GTK_WINDOW (window),
-                        NULL,
-                        (GAsyncReadyCallback)save_dialog_cb,
-                        save_dialog_async_data_new (embed, suggested_filename, SAVE_DIALOG_MODE_SCREENSHOT));
+  session = ephy_screenshot_session_new (window, embed, suggested_filename);
+  g_signal_connect_object (session, "finished",
+                           G_CALLBACK (screenshot_session_finished_cb), window, G_CONNECT_DEFAULT);
+  g_object_set_data_full (G_OBJECT (window), SCREENSHOT_SESSION_KEY, session, g_object_unref);
+
+  ephy_screenshot_session_start (session);
 }
 
 void

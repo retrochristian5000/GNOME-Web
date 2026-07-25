@@ -272,3 +272,30 @@ dnd > .boxed-list {
   margin-left: 6px;
   margin-right: 6px;
 }
+
+/* Both buttons of the screenshot toolbar share the same translucency, so that
+ * they read as one control over the dimmed page.
+ */
+.screenshot-toolbar button {
+  background-color: alpha(@window_bg_color, .85);
+}
+
+.screenshot-toolbar button:hover {
+  background-color: alpha(@window_bg_color, .95);
+}
+
+.screenshot-toolbar button:active {
+  background-color: @window_bg_color;
+}
+
+.screenshot-toolbar button.suggested-action {
+  background-color: alpha(@accent_bg_color, .85);
+}
+
+.screenshot-toolbar button.suggested-action:hover {
+  background-color: alpha(@accent_bg_color, .95);
+}
+
+.screenshot-toolbar button.suggested-action:active {
+  background-color: @accent_bg_color;
+}
