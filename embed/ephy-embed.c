@@ -939,6 +939,42 @@ ephy_embed_remove_top_widget (EphyEmbed *embed,
 }
 
 /**
+ * ephy_embed_add_overlay_widget:
+ * @embed: an #EphyEmbed
+ * @widget: a #GtkWidget
+ *
+ * Adds a #GtkWidget on top of the web view, without resizing it. Use the
+ * alignment and margin properties of @widget to place it.
+ */
+void
+ephy_embed_add_overlay_widget (EphyEmbed *embed,
+                               GtkWidget *widget)
+{
+  g_assert (EPHY_IS_EMBED (embed));
+  g_assert (GTK_IS_WIDGET (widget));
+
+  gtk_overlay_add_overlay (GTK_OVERLAY (embed->overlay), widget);
+}
+
+/**
+ * ephy_embed_remove_overlay_widget:
+ * @embed: an #EphyEmbed
+ * @widget: a #GtkWidget
+ *
+ * Removes a #GtkWidget added with ephy_embed_add_overlay_widget(), destroying
+ * it unless another reference is held.
+ */
+void
+ephy_embed_remove_overlay_widget (EphyEmbed *embed,
+                                  GtkWidget *widget)
+{
+  g_assert (EPHY_IS_EMBED (embed));
+  g_assert (GTK_IS_WIDGET (widget));
+
+  gtk_overlay_remove_overlay (GTK_OVERLAY (embed->overlay), widget);
+}
+
+/**
  * ephy_embed_set_delayed_load_request:
  * @embed: a #EphyEmbed
  * @request: a #WebKitNetworkRequest
