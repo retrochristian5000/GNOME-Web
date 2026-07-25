@@ -45,6 +45,7 @@ libephymain_sources = [
   'ephy-passwords-view.c',
   'ephy-privacy-report.c',
   'ephy-screenshot-capture.c',
+  'ephy-screenshot-preview-dialog.c',
   'ephy-security-dialog.c',
   'ephy-session.c',
   'ephy-shell.c',

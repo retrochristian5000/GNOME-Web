@@ -58,6 +58,7 @@ src/ephy-main.c
 src/ephy-page-menu-button.c
 src/ephy-passwords-view.c
 src/ephy-privacy-report.c
+src/ephy-screenshot-preview-dialog.c
 src/ephy-security-dialog.c
 src/ephy-session.c
 src/ephy-shell.c
