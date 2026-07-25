@@ -44,6 +44,7 @@ libephymain_sources = [
   'ephy-page-menu-button.c',
   'ephy-passwords-view.c',
   'ephy-privacy-report.c',
+  'ephy-screenshot-capture.c',
   'ephy-security-dialog.c',
   'ephy-session.c',
   'ephy-shell.c',
