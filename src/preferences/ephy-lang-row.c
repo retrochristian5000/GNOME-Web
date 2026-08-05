@@ -48,6 +48,8 @@ ephy_lang_row_dispose (GObject *object)
 
   g_clear_pointer (&self->code, g_free);
 
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_LANG_ROW);
+
   G_OBJECT_CLASS (ephy_lang_row_parent_class)->dispose (object);
 }
 

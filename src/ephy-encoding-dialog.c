@@ -421,6 +421,9 @@ ephy_encoding_dialog_dispose (GObject *object)
   if (dialog->embed)
     ephy_encoding_dialog_detach_embed (dialog);
 
+
+  gtk_widget_dispose_template (GTK_WIDGET (dialog), EPHY_TYPE_ENCODING_DIALOG);
+
   G_OBJECT_CLASS (ephy_encoding_dialog_parent_class)->dispose (object);
 }
 

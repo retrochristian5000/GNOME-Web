@@ -258,6 +258,16 @@ find_shortuct_cb (EphyDataView *self)
 }
 
 static void
+ephy_data_view_dispose (GObject *object)
+{
+  EphyDataView *self = EPHY_DATA_VIEW (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_DATA_VIEW);
+
+  G_OBJECT_CLASS (ephy_data_view_parent_class)->dispose (object);
+}
+
+static void
 ephy_data_view_class_init (EphyDataViewClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -266,6 +276,7 @@ ephy_data_view_class_init (EphyDataViewClass *klass)
   object_class->set_property = ephy_data_view_set_property;
   object_class->get_property = ephy_data_view_get_property;
   object_class->finalize = ephy_data_view_finalize;
+  object_class->dispose = ephy_data_view_dispose;
 
   obj_properties[PROP_CLEAR_ACTION_NAME] =
     g_param_spec_string ("clear-action-name",

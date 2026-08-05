@@ -247,6 +247,8 @@ synced_tabs_dialog_dispose (GObject *object)
   g_cancellable_cancel (dialog->cancellable);
   g_clear_object (&dialog->cancellable);
 
+  gtk_widget_dispose_template (GTK_WIDGET (dialog), EPHY_TYPE_SYNCED_TABS_DIALOG);
+
   G_OBJECT_CLASS (synced_tabs_dialog_parent_class)->dispose (object);
 }
 

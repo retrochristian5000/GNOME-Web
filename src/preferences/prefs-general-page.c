@@ -122,6 +122,8 @@ prefs_general_page_dispose (GObject *object)
   if (general_page->add_lang_dialog)
     adw_dialog_close (general_page->add_lang_dialog);
 
+  gtk_widget_dispose_template (GTK_WIDGET (general_page), EPHY_TYPE_PREFS_GENERAL_PAGE);
+
   G_OBJECT_CLASS (prefs_general_page_parent_class)->dispose (object);
 }
 

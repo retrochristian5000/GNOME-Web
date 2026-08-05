@@ -1295,12 +1295,23 @@ ephy_bookmarks_dialog_finalize (GObject *object)
 }
 
 static void
+ephy_bookmarks_dialog_dispose (GObject *object)
+{
+  EphyBookmarksDialog *self = EPHY_BOOKMARKS_DIALOG (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_BOOKMARKS_DIALOG);
+
+  G_OBJECT_CLASS (ephy_bookmarks_dialog_parent_class)->dispose (object);
+}
+
+static void
 ephy_bookmarks_dialog_class_init (EphyBookmarksDialogClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
   object_class->finalize = ephy_bookmarks_dialog_finalize;
+  object_class->dispose = ephy_bookmarks_dialog_dispose;
 
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/epiphany/gtk/bookmarks-dialog.ui");
   gtk_widget_class_bind_template_child (widget_class, EphyBookmarksDialog, toast_overlay);

@@ -249,6 +249,8 @@ ephy_bookmark_row_dispose (GObject *object)
   g_cancellable_cancel (self->cancellable);
   g_clear_object (&self->cancellable);
 
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_BOOKMARK_ROW);
+
   G_OBJECT_CLASS (ephy_bookmark_row_parent_class)->dispose (object);
 }
 

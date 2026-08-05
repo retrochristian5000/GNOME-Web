@@ -562,6 +562,8 @@ ephy_action_bar_dispose (GObject *object)
 
   g_clear_handle_id (&action_bar->downloads_button_attention_timeout_id, g_source_remove);
 
+  gtk_widget_dispose_template (GTK_WIDGET (action_bar), EPHY_TYPE_ACTION_BAR);
+
   G_OBJECT_CLASS (ephy_action_bar_parent_class)->dispose (object);
 }
 

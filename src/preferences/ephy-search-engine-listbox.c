@@ -99,12 +99,23 @@ ephy_search_engine_list_box_finalize (GObject *object)
 }
 
 static void
+ephy_search_engine_list_box_dispose (GObject *object)
+{
+  EphySearchEngineListBox *self = EPHY_SEARCH_ENGINE_LIST_BOX (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_SEARCH_ENGINE_LIST_BOX);
+
+  G_OBJECT_CLASS (ephy_search_engine_list_box_parent_class)->dispose (object);
+}
+
+static void
 ephy_search_engine_list_box_class_init (EphySearchEngineListBoxClass *klass)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
 
   object_class->finalize = ephy_search_engine_list_box_finalize;
+  object_class->dispose = ephy_search_engine_list_box_dispose;
 
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/epiphany/gtk/search-engine-listbox.ui");
 

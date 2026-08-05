@@ -89,9 +89,22 @@ remove_menu_item (GMenu      *menu,
 }
 
 static void
+ephy_page_menu_button_dispose (GObject *object)
+{
+  EphyPageMenuButton *self = EPHY_PAGE_MENU_BUTTON (object);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_PAGE_MENU_BUTTON);
+
+  G_OBJECT_CLASS (ephy_page_menu_button_parent_class)->dispose (object);
+}
+
+static void
 ephy_page_menu_button_class_init (EphyPageMenuButtonClass *klass)
 {
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
+
+  object_class->dispose = ephy_page_menu_button_dispose;
 
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/epiphany/gtk/page-menu-button.ui");
 

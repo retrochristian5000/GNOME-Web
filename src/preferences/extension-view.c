@@ -209,6 +209,8 @@ ephy_extension_view_dispose (GObject *object)
 
   g_clear_object (&self->web_extension);
 
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_EXTENSION_VIEW);
+
   G_OBJECT_CLASS (ephy_extension_view_parent_class)->dispose (object);
 }
 

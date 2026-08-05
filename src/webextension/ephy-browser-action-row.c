@@ -129,6 +129,8 @@ ephy_browser_action_row_dispose (GObject *object)
 
   g_clear_object (&self->browser_action);
 
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_BROWSER_ACTION_ROW);
+
   G_OBJECT_CLASS (ephy_browser_action_row_parent_class)->dispose (object);
 }
 

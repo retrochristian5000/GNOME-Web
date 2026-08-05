@@ -249,6 +249,8 @@ ephy_security_dialog_dispose (GObject *object)
 
   g_clear_object (&dialog->certificate);
 
+  gtk_widget_dispose_template (GTK_WIDGET (dialog), EPHY_TYPE_SECURITY_DIALOG);
+
   G_OBJECT_CLASS (ephy_security_dialog_parent_class)->dispose (object);
 }
 

@@ -839,6 +839,8 @@ ephy_history_dialog_dispose (GObject *object)
 
   remove_pending_sorter_source (self, TRUE);
 
+  gtk_widget_dispose_template (GTK_WIDGET (self), EPHY_TYPE_HISTORY_DIALOG);
+
   G_OBJECT_CLASS (ephy_history_dialog_parent_class)->dispose (object);
 }
 
