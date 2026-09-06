@@ -208,19 +208,20 @@ closed_tab_free (ClosedTab *tab)
 }
 
 static ClosedTab *
-closed_tab_new (EphyWebView    *web_view,
+closed_tab_new (const char     *url,
+                EphyEmbed      *embed,
                 int             position,
                 gboolean        pinned,
                 TabViewTracker *tab_view_tracker)
 {
   ClosedTab *tab = g_new0 (ClosedTab, 1);
 
-  tab->url = g_strdup (ephy_web_view_get_address (web_view));
+  tab->url = g_strdup (url);
   tab->position = position;
   tab->pinned = pinned;
   /* Takes the ownership of the tracker */
   tab->tab_view_tracker = tab_view_tracker;
-  tab->state = ephy_embed_get_session_state (EPHY_GET_EMBED_FROM_EPHY_WEB_VIEW (web_view));
+  tab->state = ephy_embed_get_session_state (embed);
 
   return tab;
 }
@@ -305,19 +306,27 @@ ephy_session_tab_closed (EphySession *session,
                          gboolean     pinned)
 {
   EphyWebView *view;
-  WebKitWebView *wk_view;
   ClosedTab *tab;
+  const char *address;
 
-  view = ephy_embed_get_web_view (embed);
-  wk_view = WEBKIT_WEB_VIEW (view);
+  view = ephy_embed_get_web_view_if_created (embed);
+  if (view) {
+    WebKitWebView *wk_view = WEBKIT_WEB_VIEW (view);
 
-  if (!webkit_web_view_can_go_back (wk_view) && !webkit_web_view_can_go_forward (wk_view) &&
-      (ephy_web_view_get_is_blank (view) || ephy_web_view_is_newtab (view) ||
-       ephy_web_view_is_overview (view))) {
-    return;
+    if (!webkit_web_view_can_go_back (wk_view) && !webkit_web_view_can_go_forward (wk_view) &&
+        (ephy_web_view_get_is_blank (view) || ephy_web_view_is_newtab (view) ||
+         ephy_web_view_is_overview (view))) {
+      return;
+    }
+
+    address = ephy_web_view_get_address (view);
+  } else {
+    address = ephy_embed_get_uri (embed);
+    if (!address || strcmp (address, "about:blank") == 0)
+      return;
   }
 
-  tab = closed_tab_new (view, position,
+  tab = closed_tab_new (address, embed, position,
                         pinned,
                         ephy_session_ref_or_create_tab_view_tracker (session, tab_view));
   g_queue_push_head (session->closed_tabs, tab);
@@ -326,7 +335,7 @@ ephy_session_tab_closed (EphySession *session,
     g_object_notify_by_pspec (G_OBJECT (session), obj_properties[PROP_CAN_UNDO_TAB_CLOSED]);
 
   LOG ("Added: %s to the list (%d elements)",
-       ephy_web_view_get_address (view), g_queue_get_length (session->closed_tabs));
+       address, g_queue_get_length (session->closed_tabs));
 }
 
 gboolean
@@ -338,15 +347,31 @@ ephy_session_get_can_undo_tab_closed (EphySession *session)
 }
 
 static void
+session_embed_web_view_created_cb (EphyEmbed   *embed,
+                                   EphyWebView *view,
+                                   EphySession *session)
+{
+  g_signal_connect (view, "load-changed",
+                    G_CALLBACK (load_changed_cb), session);
+}
+
+static void
 tab_view_page_attached_cb (AdwTabView  *tab_view,
                            AdwTabPage  *page,
                            guint        position,
                            EphySession *session)
 {
   EphyEmbed *embed = EPHY_EMBED (adw_tab_page_get_child (page));
+  EphyWebView *view = ephy_embed_get_web_view_if_created (embed);
 
-  g_signal_connect (ephy_embed_get_web_view (embed), "load-changed",
-                    G_CALLBACK (load_changed_cb), session);
+  if (view) {
+    g_signal_connect (view, "load-changed",
+                      G_CALLBACK (load_changed_cb), session);
+  } else {
+    g_signal_connect_object (embed, "web-view-created",
+                             G_CALLBACK (session_embed_web_view_created_cb),
+                             session, G_CONNECT_DEFAULT);
+  }
 }
 
 static void
@@ -357,6 +382,7 @@ tab_view_page_detached_cb (AdwTabView  *tab_view,
 {
   EphyEmbed *embed = EPHY_EMBED (adw_tab_page_get_child (page));
   EphyTabView *ephy_tab_view;
+  EphyWebView *view;
 
   g_assert (ADW_IS_TAB_VIEW (tab_view));
   /* The EphyTabView will be NULL if closing the last tab of a window, which
@@ -367,9 +393,12 @@ tab_view_page_detached_cb (AdwTabView  *tab_view,
 
   ephy_session_save (session);
 
-  g_signal_handlers_disconnect_by_func
-    (ephy_embed_get_web_view (embed), G_CALLBACK (load_changed_cb),
-    session);
+  view = ephy_embed_get_web_view_if_created (embed);
+  if (view) {
+    g_signal_handlers_disconnect_by_func
+      (view, G_CALLBACK (load_changed_cb),
+      session);
+  }
 
   ephy_session_tab_closed (session, ephy_tab_view, embed, position,
                            adw_tab_page_get_pinned (page));
@@ -566,31 +595,40 @@ session_tab_new (EphyEmbed   *embed,
 {
   SessionTab *session_tab;
   const char *address;
-  EphyWebView *web_view = ephy_embed_get_web_view (embed);
-  EphyWebViewErrorPage error_page = ephy_web_view_get_error_page (web_view);
+  EphyWebView *web_view = ephy_embed_get_web_view_if_created (embed);
 
   session_tab = g_new (SessionTab, 1);
 
-  address = ephy_web_view_get_address (web_view);
-  /* Do not store ephy-about: URIs, they are not valid for loading. */
-  if (g_str_has_prefix (address, EPHY_ABOUT_SCHEME)) {
-    session_tab->url = g_strconcat ("about", address + EPHY_ABOUT_SCHEME_LEN, NULL);
-  } else if (strcmp (address, "about:blank") == 0) {
-    /* EphyWebView address is NULL between load_uri() and WEBKIT_LOAD_STARTED,
-     * but WebKitWebView knows the pending API request URL, so use that instead of about:blank.
-     */
-    session_tab->url = g_strdup (webkit_web_view_get_uri (WEBKIT_WEB_VIEW (web_view)));
+  if (web_view) {
+    EphyWebViewErrorPage error_page = ephy_web_view_get_error_page (web_view);
+
+    address = ephy_web_view_get_address (web_view);
+    /* Do not store ephy-about: URIs, they are not valid for loading. */
+    if (g_str_has_prefix (address, EPHY_ABOUT_SCHEME)) {
+      session_tab->url = g_strconcat ("about", address + EPHY_ABOUT_SCHEME_LEN, NULL);
+    } else if (strcmp (address, "about:blank") == 0) {
+      /* EphyWebView address is NULL between load_uri() and WEBKIT_LOAD_STARTED,
+       * but WebKitWebView knows the pending API request URL, so use that instead of about:blank.
+       */
+      session_tab->url = g_strdup (webkit_web_view_get_uri (WEBKIT_WEB_VIEW (web_view)));
+    } else {
+      session_tab->url = g_strdup (address);
+    }
+
+    session_tab->loading = (ephy_web_view_is_loading (web_view) &&
+                            !ephy_embed_has_load_pending (embed) &&
+                            !session->closing);
+    session_tab->crashed = (error_page == EPHY_WEB_VIEW_ERROR_PAGE_CRASH ||
+                            error_page == EPHY_WEB_VIEW_ERROR_PROCESS_CRASH);
   } else {
+    address = ephy_embed_get_uri (embed);
     session_tab->url = g_strdup (address);
+    session_tab->loading = FALSE;
+    session_tab->crashed = FALSE;
   }
 
   session_tab->title = g_strdup (ephy_embed_get_title (embed));
-  session_tab->loading = (ephy_web_view_is_loading (web_view) &&
-                          !ephy_embed_has_load_pending (embed) &&
-                          !session->closing);
-  session_tab->crashed = (error_page == EPHY_WEB_VIEW_ERROR_PAGE_CRASH ||
-                          error_page == EPHY_WEB_VIEW_ERROR_PROCESS_CRASH);
-  session_tab->state = ephy_embed_get_session_state (EPHY_GET_EMBED_FROM_EPHY_WEB_VIEW (web_view));
+  session_tab->state = ephy_embed_get_session_state (embed);
   session_tab->pinned = ephy_tab_view_get_is_pinned (tab_view, GTK_WIDGET (embed));
 
   return session_tab;
@@ -1212,6 +1250,8 @@ session_parse_embed (SessionParserContext  *context,
     }
 
     flags = EPHY_NEW_TAB_APPEND_LAST;
+    if (delay_loading)
+      flags |= EPHY_NEW_TAB_DELAY_LOAD;
 
     embed = ephy_shell_new_tab_full (ephy_shell_get_default (),
                                      title, NULL,
@@ -1221,7 +1261,6 @@ session_parse_embed (SessionParserContext  *context,
                                   adw_tab_view_get_page (tab_view, GTK_WIDGET (embed)),
                                   is_pin);
 
-    web_view = ephy_embed_get_web_view (embed);
     if (history) {
       guchar *data;
       gsize data_length;
@@ -1237,11 +1276,12 @@ session_parse_embed (SessionParserContext  *context,
       WebKitURIRequest *request = webkit_uri_request_new (url);
 
       ephy_embed_set_delayed_load_request (embed, request, state);
-      ephy_web_view_set_placeholder (web_view, url, title);
       g_object_unref (request);
     } else {
       WebKitBackForwardList *bf_list;
       WebKitBackForwardListItem *item;
+
+      web_view = ephy_embed_get_web_view (embed);
 
       if (state) {
         webkit_web_view_restore_session_state (WEBKIT_WEB_VIEW (web_view), state);

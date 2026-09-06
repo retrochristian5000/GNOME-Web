@@ -316,6 +316,53 @@ test_ephy_shell_open_uris_focus (void)
 }
 
 static void
+test_ephy_shell_delayed_web_view (void)
+{
+  EphyShell *ephy_shell;
+  GtkWidget *window;
+  EphyTabView *tab_view;
+  EphyEmbed *embed1;
+  EphyEmbed *embed2;
+  WebKitURIRequest *request;
+
+  ephy_shell = ephy_shell_get_default ();
+  window = GTK_WIDGET (ephy_window_new ());
+  tab_view = ephy_window_get_tab_view (EPHY_WINDOW (window));
+
+  /* Tab 1: Normal tab (materialized immediately). */
+  embed1 = ephy_shell_new_tab_full (ephy_shell,
+                                    "Tab 1",
+                                    NULL,
+                                    EPHY_WINDOW (window),
+                                    NULL,
+                                    EPHY_NEW_TAB_DONT_SHOW_WINDOW);
+  g_assert_nonnull (ephy_embed_get_web_view_if_created (embed1));
+
+  /* Tab 2: Delayed tab (web view creation deferred). */
+  embed2 = ephy_shell_new_tab_full (ephy_shell,
+                                    "Tab 2",
+                                    NULL,
+                                    EPHY_WINDOW (window),
+                                    NULL,
+                                    EPHY_NEW_TAB_APPEND_LAST | EPHY_NEW_TAB_DELAY_LOAD | EPHY_NEW_TAB_DONT_SHOW_WINDOW);
+  g_assert_null (ephy_embed_get_web_view_if_created (embed2));
+
+  request = webkit_uri_request_new ("https://example.com/test.html");
+  ephy_embed_set_delayed_load_request (embed2, request, NULL);
+  g_object_unref (request);
+
+  g_assert_true (ephy_embed_has_load_pending (embed2));
+  g_assert_cmpstr (ephy_embed_get_uri (embed2), ==, "https://example.com/test.html");
+  g_assert_null (ephy_embed_get_web_view_if_created (embed2));
+
+  /* Switch to Tab 2: this must automatically ensure and create the web view. */
+  ephy_tab_view_select_nth_page (tab_view, 1);
+  g_assert_nonnull (ephy_embed_get_web_view_if_created (embed2));
+
+  gtk_window_destroy (GTK_WINDOW (window));
+}
+
+static void
 test_ephy_shell_tab_no_history (void)
 {
   /* TODO: BackForwardList */
@@ -365,6 +412,9 @@ main (int   argc,
 
   g_test_add_func ("/src/ephy-shell/open_uris_focus",
                    test_ephy_shell_open_uris_focus);
+
+  g_test_add_func ("/src/ephy-shell/delayed_web_view",
+                   test_ephy_shell_delayed_web_view);
 
   g_test_add_func ("/src/ephy-shell/tab_no_history",
                    test_ephy_shell_tab_no_history);
