@@ -37,8 +37,11 @@ typedef enum {
   EPHY_EMBED_TOP_WIDGET_POLICY_DESTROY_ON_TRANSITION
 } EphyEmbedTopWidgetPolicy;
 
-EphyWebView*     ephy_embed_get_web_view                  (EphyEmbed  *embed);
-EphyFindToolbar* ephy_embed_get_find_toolbar              (EphyEmbed  *embed);
+EphyWebView         *ephy_embed_get_web_view            (EphyEmbed *embed);
+EphyWebView         *ephy_embed_get_web_view_if_created (EphyEmbed *embed);
+void                 ephy_embed_ensure_web_view         (EphyEmbed *embed);
+const char          *ephy_embed_get_uri                 (EphyEmbed *embed);
+EphyFindToolbar     *ephy_embed_get_find_toolbar        (EphyEmbed *embed);
 void             ephy_embed_add_top_widget                (EphyEmbed                *embed,
                                                            GtkWidget                *widget,
                                                            EphyEmbedTopWidgetPolicy  policy);
