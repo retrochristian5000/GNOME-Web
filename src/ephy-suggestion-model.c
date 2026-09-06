@@ -527,10 +527,15 @@ tabs_query (EphySuggestionModel *self,
         continue;
 
       embed = EPHY_EMBED (ephy_tab_view_get_nth_page (tab_view, i));
-      webview = ephy_embed_get_web_view (embed);
-      display_address = ephy_web_view_get_display_address (webview);
+      webview = ephy_embed_get_web_view_if_created (embed);
+      if (webview) {
+        display_address = ephy_web_view_get_display_address (webview);
+        title = webkit_web_view_get_title (WEBKIT_WEB_VIEW (webview));
+      } else {
+        display_address = ephy_embed_get_uri (embed);
+        title = ephy_embed_get_title (embed);
+      }
       address = g_strdup_printf ("ephy-tab://%d@%d", i, win_idx);
-      title = webkit_web_view_get_title (WEBKIT_WEB_VIEW (webview));
 
       display_address_casefold = g_utf8_casefold (display_address, -1);
       query_casefold = g_utf8_casefold (data->query, -1);

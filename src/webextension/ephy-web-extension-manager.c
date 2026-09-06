@@ -1287,6 +1287,18 @@ ephy_web_extension_manager_add_web_extension_to_webview (EphyWebExtensionManager
 }
 
 static void
+extension_web_view_created_cb (EphyEmbed        *embed,
+                               EphyWebView      *web_view,
+                               EphyWebExtension *web_extension)
+{
+  EphyWindow *window = EPHY_WINDOW (gtk_widget_get_root (GTK_WIDGET (embed)));
+  EphyWebExtensionManager *self = ephy_web_extension_manager_get_default ();
+
+  ephy_web_extension_manager_add_web_extension_to_webview (self, web_extension, window, web_view);
+  ephy_web_extension_manager_update_location_entry (self, window);
+}
+
+static void
 page_attached_cb (AdwTabView *tab_view,
                   AdwTabPage *page,
                   gint        position,
@@ -1294,12 +1306,18 @@ page_attached_cb (AdwTabView *tab_view,
 {
   EphyWebExtension *web_extension = EPHY_WEB_EXTENSION (user_data);
   GtkWidget *child = adw_tab_page_get_child (page);
-  EphyWebView *web_view = ephy_embed_get_web_view (EPHY_EMBED (child));
+  EphyWebView *web_view = ephy_embed_get_web_view_if_created (EPHY_EMBED (child));
   EphyWindow *window = EPHY_WINDOW (gtk_widget_get_root (GTK_WIDGET (tab_view)));
   EphyWebExtensionManager *self = ephy_web_extension_manager_get_default ();
 
-  ephy_web_extension_manager_add_web_extension_to_webview (self, web_extension, window, web_view);
-  ephy_web_extension_manager_update_location_entry (self, window);
+  if (web_view) {
+    ephy_web_extension_manager_add_web_extension_to_webview (self, web_extension, window, web_view);
+    ephy_web_extension_manager_update_location_entry (self, window);
+  } else {
+    g_signal_connect_object (child, "web-view-created",
+                             G_CALLBACK (extension_web_view_created_cb),
+                             web_extension, G_CONNECT_DEFAULT);
+  }
 }
 
 static void
@@ -1519,9 +1537,14 @@ ephy_web_extension_manager_add_web_extension_to_window (EphyWebExtensionManager 
   /* Add page actions and add content script */
   for (int i = 0; i < ephy_tab_view_get_n_pages (tab_view); i++) {
     GtkWidget *page = ephy_tab_view_get_nth_page (tab_view, i);
-    EphyWebView *web_view = ephy_embed_get_web_view (EPHY_EMBED (page));
+    EphyWebView *web_view = ephy_embed_get_web_view_if_created (EPHY_EMBED (page));
 
-    ephy_web_extension_manager_add_web_extension_to_webview (self, web_extension, window, web_view);
+    if (web_view)
+      ephy_web_extension_manager_add_web_extension_to_webview (self, web_extension, window, web_view);
+    else
+      g_signal_connect_object (page, "web-view-created",
+                               G_CALLBACK (extension_web_view_created_cb),
+                               web_extension, G_CONNECT_DEFAULT);
   }
 
   ephy_web_extension_manager_update_location_entry (self, window);
@@ -1646,6 +1669,17 @@ typedef struct {
   EphyWebExtension *web_extension;
   guint64 window_id;
 } WindowAddedCallbackData;
+static void
+extension_on_page_web_view_created_cb (EphyEmbed        *embed,
+                                       EphyWebView      *view,
+                                       EphyWebExtension *web_extension)
+{
+  EphyWebExtensionManager *manager = ephy_web_extension_manager_get_default ();
+  g_autoptr (JsonNode) json = NULL;
+
+  json = ephy_web_extension_api_tabs_create_tab_object (web_extension, view);
+  ephy_web_extension_manager_emit_in_extension_views (manager, web_extension, "tabs.onCreated", json_to_string (json, FALSE));
+}
 
 static void
 on_page_attached (AdwTabView *self,
@@ -1659,9 +1693,15 @@ on_page_attached (AdwTabView *self,
   GtkWidget *embed = adw_tab_page_get_child (page);
   EphyWebView *view;
 
-  view = ephy_embed_get_web_view (EPHY_EMBED (embed));
-  json = ephy_web_extension_api_tabs_create_tab_object (web_extension, view);
-  ephy_web_extension_manager_emit_in_extension_views (manager, web_extension, "tabs.onCreated", json_to_string (json, FALSE));
+  view = ephy_embed_get_web_view_if_created (EPHY_EMBED (embed));
+  if (view) {
+    json = ephy_web_extension_api_tabs_create_tab_object (web_extension, view);
+    ephy_web_extension_manager_emit_in_extension_views (manager, web_extension, "tabs.onCreated", json_to_string (json, FALSE));
+  } else {
+    g_signal_connect_object (embed, "web-view-created",
+                             G_CALLBACK (extension_on_page_web_view_created_cb),
+                             web_extension, G_CONNECT_DEFAULT);
+  }
 }
 
 static void
@@ -1676,7 +1716,10 @@ on_page_detached (AdwTabView *self,
   GtkWidget *embed = adw_tab_page_get_child (page);
   EphyWebView *view;
 
-  view = ephy_embed_get_web_view (EPHY_EMBED (embed));
+  view = ephy_embed_get_web_view_if_created (EPHY_EMBED (embed));
+  if (!view)
+    return;
+
   tab_json = g_strdup_printf ("%ld", ephy_web_view_get_uid (view));
   ephy_web_extension_manager_emit_in_extension_views (manager, web_extension, "tabs.onRemoved", tab_json);
 }
