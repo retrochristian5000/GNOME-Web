@@ -31,7 +31,7 @@
 #include "ephy-shell.h"
 
 struct _EphySyncedTabsDialog {
-  AdwWindow parent_instance;
+  AdwNavigationPage parent_instance;
 
   EphyOpenTabsManager *manager;
   WebKitFaviconDatabase *database;
@@ -39,7 +39,7 @@ struct _EphySyncedTabsDialog {
   GCancellable *cancellable;
 };
 
-G_DEFINE_FINAL_TYPE (EphySyncedTabsDialog, ephy_synced_tabs_dialog, ADW_TYPE_WINDOW)
+G_DEFINE_FINAL_TYPE (EphySyncedTabsDialog, ephy_synced_tabs_dialog, ADW_TYPE_NAVIGATION_PAGE)
 
 typedef enum {
   PROP_OPEN_TABS_MANAGER = 1,

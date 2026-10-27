@@ -1053,9 +1053,7 @@ on_sync_synced_tabs_button_clicked (GtkWidget             *button,
 
   manager = ephy_shell_get_open_tabs_manager (ephy_shell_get_default ());
   synced_tabs_dialog = ephy_synced_tabs_dialog_new (manager);
-  gtk_window_set_transient_for (GTK_WINDOW (synced_tabs_dialog), GTK_WINDOW (sync_dialog));
-  gtk_window_set_modal (GTK_WINDOW (synced_tabs_dialog), TRUE);
-  gtk_window_present (GTK_WINDOW (synced_tabs_dialog));
+  adw_navigation_view_push (ADW_NAVIGATION_VIEW (sync_dialog->nav_view), ADW_NAVIGATION_PAGE (synced_tabs_dialog));
 }
 
 static gchar *
