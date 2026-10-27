@@ -26,10 +26,10 @@
 
 G_BEGIN_DECLS
 
-#define EPHY_TYPE_SYNCED_TABS_DIALOG (synced_tabs_dialog_get_type ())
+#define EPHY_TYPE_SYNCED_TABS_DIALOG (ephy_synced_tabs_dialog_get_type ())
 
-G_DECLARE_FINAL_TYPE (SyncedTabsDialog, synced_tabs_dialog, EPHY, SYNCED_TABS_DIALOG, AdwWindow)
+G_DECLARE_FINAL_TYPE (EphySyncedTabsDialog, ephy_synced_tabs_dialog, EPHY, SYNCED_TABS_DIALOG, AdwWindow)
 
-SyncedTabsDialog *synced_tabs_dialog_new (EphyOpenTabsManager *manager);
+EphySyncedTabsDialog *ephy_synced_tabs_dialog_new (EphyOpenTabsManager *manager);
 
 G_END_DECLS

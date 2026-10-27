@@ -20,7 +20,7 @@
 
 #include "config.h"
 
-#include "synced-tabs-dialog.h"
+#include "ephy-synced-tabs-dialog.h"
 
 #include <json-glib/json-glib.h>
 
@@ -30,7 +30,7 @@
 #include "ephy-favicon-helpers.h"
 #include "ephy-shell.h"
 
-struct _SyncedTabsDialog {
+struct _EphySyncedTabsDialog {
   AdwWindow parent_instance;
 
   EphyOpenTabsManager *manager;
@@ -39,11 +39,11 @@ struct _SyncedTabsDialog {
   GCancellable *cancellable;
 };
 
-G_DEFINE_FINAL_TYPE (SyncedTabsDialog, synced_tabs_dialog, ADW_TYPE_WINDOW)
+G_DEFINE_FINAL_TYPE (EphySyncedTabsDialog, ephy_synced_tabs_dialog, ADW_TYPE_WINDOW)
 
 typedef enum {
   PROP_OPEN_TABS_MANAGER = 1,
-} SyncedTabsDialogProps;
+} EphySyncedTabsDialogProps;
 
 static GParamSpec *obj_properties[PROP_OPEN_TABS_MANAGER + 1];
 
@@ -74,7 +74,7 @@ static void
 tab_row_activated_cb (AdwActionRow *row,
                       gpointer      user_data)
 {
-  SyncedTabsDialog *dialog = EPHY_SYNCED_TABS_DIALOG (user_data);
+  EphySyncedTabsDialog *dialog = EPHY_SYNCED_TABS_DIALOG (user_data);
   const char *url;
   EphyShell *shell;
   EphyEmbed *embed;
@@ -124,9 +124,9 @@ favicon_loaded_cb (GObject      *source,
 }
 
 static void
-synced_tabs_dialog_populate_from_record (SyncedTabsDialog   *dialog,
-                                         EphyOpenTabsRecord *record,
-                                         gboolean            is_local)
+ephy_synced_tabs_dialog_populate_from_record (EphySyncedTabsDialog *dialog,
+                                              EphyOpenTabsRecord   *record,
+                                              gboolean              is_local)
 {
   GtkWidget *expander;
   GList *tabs;
@@ -180,34 +180,34 @@ synced_tabs_dialog_populate_from_record (SyncedTabsDialog   *dialog,
 }
 
 static void
-synced_tabs_dialog_populate_model (SyncedTabsDialog *dialog)
+ephy_synced_tabs_dialog_populate_model (EphySyncedTabsDialog *dialog)
 {
   EphyOpenTabsRecord *record;
   GList *remotes;
 
   record = ephy_open_tabs_manager_get_local_tabs (dialog->manager);
-  synced_tabs_dialog_populate_from_record (dialog, record, TRUE);
+  ephy_synced_tabs_dialog_populate_from_record (dialog, record, TRUE);
 
   remotes = ephy_open_tabs_manager_get_remote_tabs (dialog->manager);
   for (GList *l = remotes; l && l->data; l = l->next) {
     if (ephy_open_tabs_record_is_stale (l->data, EPHY_SYNC_TABS_MAX_AGE))
       continue;
 
-    synced_tabs_dialog_populate_from_record (dialog, l->data, FALSE);
+    ephy_synced_tabs_dialog_populate_from_record (dialog, l->data, FALSE);
   }
 
   g_object_unref (record);
 }
 
 static void
-synced_tabs_dialog_set_property (GObject      *object,
-                                 guint         prop_id,
-                                 const GValue *value,
-                                 GParamSpec   *pspec)
+ephy_synced_tabs_dialog_set_property (GObject      *object,
+                                      guint         prop_id,
+                                      const GValue *value,
+                                      GParamSpec   *pspec)
 {
-  SyncedTabsDialog *dialog = EPHY_SYNCED_TABS_DIALOG (object);
+  EphySyncedTabsDialog *dialog = EPHY_SYNCED_TABS_DIALOG (object);
 
-  switch ((SyncedTabsDialogProps)prop_id) {
+  switch ((EphySyncedTabsDialogProps)prop_id) {
     case PROP_OPEN_TABS_MANAGER:
       if (dialog->manager)
         g_object_unref (dialog->manager);
@@ -217,14 +217,14 @@ synced_tabs_dialog_set_property (GObject      *object,
 }
 
 static void
-synced_tabs_dialog_get_property (GObject    *object,
-                                 guint       prop_id,
-                                 GValue     *value,
-                                 GParamSpec *pspec)
+ephy_synced_tabs_dialog_get_property (GObject    *object,
+                                      guint       prop_id,
+                                      GValue     *value,
+                                      GParamSpec *pspec)
 {
-  SyncedTabsDialog *dialog = EPHY_SYNCED_TABS_DIALOG (object);
+  EphySyncedTabsDialog *dialog = EPHY_SYNCED_TABS_DIALOG (object);
 
-  switch ((SyncedTabsDialogProps)prop_id) {
+  switch ((EphySyncedTabsDialogProps)prop_id) {
     case PROP_OPEN_TABS_MANAGER:
       g_value_set_object (value, dialog->manager);
       break;
@@ -232,38 +232,38 @@ synced_tabs_dialog_get_property (GObject    *object,
 }
 
 static void
-synced_tabs_dialog_constructed (GObject *object)
+ephy_synced_tabs_dialog_constructed (GObject *object)
 {
-  SyncedTabsDialog *dialog = EPHY_SYNCED_TABS_DIALOG (object);
+  EphySyncedTabsDialog *dialog = EPHY_SYNCED_TABS_DIALOG (object);
 
-  G_OBJECT_CLASS (synced_tabs_dialog_parent_class)->constructed (object);
+  G_OBJECT_CLASS (ephy_synced_tabs_dialog_parent_class)->constructed (object);
 
-  synced_tabs_dialog_populate_model (dialog);
+  ephy_synced_tabs_dialog_populate_model (dialog);
 }
 
 static void
-synced_tabs_dialog_dispose (GObject *object)
+ephy_synced_tabs_dialog_dispose (GObject *object)
 {
-  SyncedTabsDialog *dialog = EPHY_SYNCED_TABS_DIALOG (object);
+  EphySyncedTabsDialog *dialog = EPHY_SYNCED_TABS_DIALOG (object);
 
   g_clear_object (&dialog->manager);
 
   g_cancellable_cancel (dialog->cancellable);
   g_clear_object (&dialog->cancellable);
 
-  G_OBJECT_CLASS (synced_tabs_dialog_parent_class)->dispose (object);
+  G_OBJECT_CLASS (ephy_synced_tabs_dialog_parent_class)->dispose (object);
 }
 
 static void
-synced_tabs_dialog_class_init (SyncedTabsDialogClass *klass)
+ephy_synced_tabs_dialog_class_init (EphySyncedTabsDialogClass *klass)
 {
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
   GObjectClass *object_class = G_OBJECT_CLASS (klass);
 
-  object_class->set_property = synced_tabs_dialog_set_property;
-  object_class->get_property = synced_tabs_dialog_get_property;
-  object_class->constructed = synced_tabs_dialog_constructed;
-  object_class->dispose = synced_tabs_dialog_dispose;
+  object_class->set_property = ephy_synced_tabs_dialog_set_property;
+  object_class->get_property = ephy_synced_tabs_dialog_get_property;
+  object_class->constructed = ephy_synced_tabs_dialog_constructed;
+  object_class->dispose = ephy_synced_tabs_dialog_dispose;
 
   obj_properties[PROP_OPEN_TABS_MANAGER] =
     g_param_spec_object ("open-tabs-manager",
@@ -276,13 +276,13 @@ synced_tabs_dialog_class_init (SyncedTabsDialogClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class,
                                                "/org/gnome/epiphany/gtk/synced-tabs-dialog.ui");
 
-  gtk_widget_class_bind_template_child (widget_class, SyncedTabsDialog, list_box);
+  gtk_widget_class_bind_template_child (widget_class, EphySyncedTabsDialog, list_box);
 
   gtk_widget_class_add_binding_action (widget_class, GDK_KEY_Escape, GDK_NO_MODIFIER_MASK, "window.close", NULL);
 }
 
 static void
-synced_tabs_dialog_init (SyncedTabsDialog *dialog)
+ephy_synced_tabs_dialog_init (EphySyncedTabsDialog *dialog)
 {
   gtk_widget_init_template (GTK_WIDGET (dialog));
 
@@ -290,8 +290,8 @@ synced_tabs_dialog_init (SyncedTabsDialog *dialog)
   dialog->cancellable = g_cancellable_new ();
 }
 
-SyncedTabsDialog *
-synced_tabs_dialog_new (EphyOpenTabsManager *manager)
+EphySyncedTabsDialog *
+ephy_synced_tabs_dialog_new (EphyOpenTabsManager *manager)
 {
   return EPHY_SYNCED_TABS_DIALOG (g_object_new (EPHY_TYPE_SYNCED_TABS_DIALOG,
                                                 "open-tabs-manager", manager,
