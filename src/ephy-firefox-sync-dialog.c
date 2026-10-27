@@ -71,6 +71,7 @@ ephy_sync_frequency_new (guint frequency)
 struct _EphyFirefoxSyncDialog {
   AdwWindow parent_instance;
 
+  GtkWidget *nav_view;
   GtkWidget *sync_page_group;
   GtkWidget *sync_firefox_iframe_box;
   GtkWidget *sync_firefox_iframe_label;
@@ -1120,6 +1121,7 @@ ephy_firefox_sync_dialog_class_init (EphyFirefoxSyncDialogClass *klass)
   object_class->dispose = prefs_sync_page_dispose;
   object_class->finalize = prefs_sync_page_finalize;
 
+  gtk_widget_class_bind_template_child (widget_class, EphyFirefoxSyncDialog, nav_view);
   gtk_widget_class_bind_template_child (widget_class, EphyFirefoxSyncDialog, sync_page_group);
   gtk_widget_class_bind_template_child (widget_class, EphyFirefoxSyncDialog, sync_firefox_iframe_box);
   gtk_widget_class_bind_template_child (widget_class, EphyFirefoxSyncDialog, sync_firefox_iframe_label);
