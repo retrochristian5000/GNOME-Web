@@ -125,6 +125,37 @@ favicon_loaded_cb (GObject      *source,
   favicon_async_data_free (data);
 }
 
+static GtkWidget *
+ephy_tab_row_from_data (EphySyncedTabsPage *page,
+                        JsonObject         *data,
+                        gboolean            is_local)
+{
+  const char *title = json_object_get_string_member (data, "title");
+  JsonArray *url_history = json_object_get_array_member (data, "urlHistory");
+  const char *url = json_array_get_string_element (url_history, 0);
+  GtkWidget *tab_row;
+
+  tab_row = adw_action_row_new ();
+  adw_preferences_row_set_use_markup (ADW_PREFERENCES_ROW (tab_row), FALSE);
+  adw_preferences_row_set_title (ADW_PREFERENCES_ROW (tab_row), title);
+  adw_action_row_set_subtitle (ADW_ACTION_ROW (tab_row), url);
+  gtk_list_box_row_set_activatable (GTK_LIST_BOX_ROW (tab_row), !is_local);
+  adw_action_row_set_subtitle_lines (ADW_ACTION_ROW (tab_row), 1);
+  adw_action_row_set_title_lines (ADW_ACTION_ROW (tab_row), 1);
+  g_object_set_data_full (G_OBJECT (tab_row), "tab-url", g_strdup (url), g_free);
+
+  if (!is_local)
+    g_signal_connect (tab_row, "activated",
+                      G_CALLBACK (tab_row_activated_cb), page);
+
+  /* Load favicon asynchronously. */
+  webkit_favicon_database_get_favicon (page->database, url,
+                                       page->cancellable,
+                                       favicon_loaded_cb,
+                                       favicon_async_data_new (tab_row, url));
+  return g_steal_pointer (&tab_row);
+}
+
 static void
 ephy_synced_tabs_page_populate_from_record (EphySyncedTabsPage *page,
                                             EphyOpenTabsRecord *record,
@@ -151,30 +182,7 @@ ephy_synced_tabs_page_populate_from_record (EphySyncedTabsPage *page,
                                gtk_image_new_from_icon_name ("computer-symbolic"));
 
   for (GList *l = tabs; l && l->data; l = l->next) {
-    const char *title = json_object_get_string_member (l->data, "title");
-    JsonArray *url_history = json_object_get_array_member (l->data, "urlHistory");
-    const char *url = json_array_get_string_element (url_history, 0);
-    GtkWidget *tab_row;
-
-    tab_row = adw_action_row_new ();
-    adw_preferences_row_set_use_markup (ADW_PREFERENCES_ROW (tab_row), FALSE);
-    adw_preferences_row_set_title (ADW_PREFERENCES_ROW (tab_row), title);
-    adw_action_row_set_subtitle (ADW_ACTION_ROW (tab_row), url);
-    gtk_list_box_row_set_activatable (GTK_LIST_BOX_ROW (tab_row), !is_local);
-    adw_action_row_set_subtitle_lines (ADW_ACTION_ROW (tab_row), 1);
-    adw_action_row_set_title_lines (ADW_ACTION_ROW (tab_row), 1);
-    g_object_set_data_full (G_OBJECT (tab_row), "tab-url", g_strdup (url), g_free);
-
-    if (!is_local)
-      g_signal_connect (tab_row, "activated",
-                        G_CALLBACK (tab_row_activated_cb), page);
-
-    /* Load favicon asynchronously. */
-    webkit_favicon_database_get_favicon (page->database, url,
-                                         page->cancellable,
-                                         favicon_loaded_cb,
-                                         favicon_async_data_new (tab_row, url));
-
+    GtkWidget *tab_row = ephy_tab_row_from_data (page, l->data, is_local);
     adw_expander_row_add_row (ADW_EXPANDER_ROW (expander), tab_row);
   }
 
