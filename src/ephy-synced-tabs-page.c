@@ -34,6 +34,7 @@
 struct _EphySyncedTabsPage {
   AdwNavigationPage parent_instance;
 
+  AdwPreferencesGroup *local_tabs_preferences_group;
   AdwPreferencesGroup *tabs_preferences_group;
 
   EphyOpenTabsManager *manager;
@@ -161,32 +162,36 @@ ephy_synced_tabs_page_populate_from_record (EphySyncedTabsPage *page,
                                             EphyOpenTabsRecord *record,
                                             gboolean            is_local)
 {
-  GtkWidget *expander;
   GList *tabs;
-  const char *device_name;
 
   tabs = ephy_open_tabs_record_get_tabs (record);
   if (!is_local && !tabs)
     return;
 
-  if (is_local)
-    device_name = _("Local Tabs");
-  else
+  if (is_local) {
+    for (GList *l = tabs; l && l->data; l = l->next) {
+      GtkWidget *tab_row = ephy_tab_row_from_data (page, l->data, is_local);
+      adw_preferences_group_add (page->local_tabs_preferences_group, tab_row);
+    }
+  } else {
+    GtkWidget *expander;
+    const char *device_name;
+
     device_name = ephy_open_tabs_record_get_client_name (record);
+    expander = adw_expander_row_new ();
+    adw_expander_row_set_expanded (ADW_EXPANDER_ROW (expander), FALSE);
+    adw_preferences_row_set_use_markup (ADW_PREFERENCES_ROW (expander), FALSE);
+    adw_preferences_row_set_title (ADW_PREFERENCES_ROW (expander), device_name);
+    adw_expander_row_add_prefix (ADW_EXPANDER_ROW (expander),
+                                 gtk_image_new_from_icon_name ("computer-symbolic"));
 
-  expander = adw_expander_row_new ();
-  adw_expander_row_set_expanded (ADW_EXPANDER_ROW (expander), FALSE);
-  adw_preferences_row_set_use_markup (ADW_PREFERENCES_ROW (expander), FALSE);
-  adw_preferences_row_set_title (ADW_PREFERENCES_ROW (expander), device_name);
-  adw_expander_row_add_prefix (ADW_EXPANDER_ROW (expander),
-                               gtk_image_new_from_icon_name ("computer-symbolic"));
+    for (GList *l = tabs; l && l->data; l = l->next) {
+      GtkWidget *tab_row = ephy_tab_row_from_data (page, l->data, is_local);
+      adw_expander_row_add_row (ADW_EXPANDER_ROW (expander), tab_row);
+    }
 
-  for (GList *l = tabs; l && l->data; l = l->next) {
-    GtkWidget *tab_row = ephy_tab_row_from_data (page, l->data, is_local);
-    adw_expander_row_add_row (ADW_EXPANDER_ROW (expander), tab_row);
+    adw_preferences_group_add (page->tabs_preferences_group, GTK_WIDGET (expander));
   }
-
-  adw_preferences_group_add (page->tabs_preferences_group, GTK_WIDGET (expander));
 }
 
 static void
@@ -287,6 +292,7 @@ ephy_synced_tabs_page_class_init (EphySyncedTabsPageClass *klass)
                                                "/org/gnome/epiphany/gtk/synced-tabs-page.ui");
 
   gtk_widget_class_bind_template_child (widget_class, EphySyncedTabsPage, tabs_preferences_group);
+  gtk_widget_class_bind_template_child (widget_class, EphySyncedTabsPage, local_tabs_preferences_group);
 
   gtk_widget_class_add_binding_action (widget_class, GDK_KEY_Escape, GDK_NO_MODIFIER_MASK, "window.close", NULL);
 }
