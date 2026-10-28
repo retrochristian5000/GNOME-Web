@@ -34,9 +34,10 @@
 struct _EphySyncedTabsPage {
   AdwNavigationPage parent_instance;
 
+  AdwPreferencesGroup *tabs_preferences_group;
+
   EphyOpenTabsManager *manager;
   WebKitFaviconDatabase *database;
-  GtkWidget *list_box;
   GCancellable *cancellable;
 };
 
@@ -143,7 +144,7 @@ ephy_synced_tabs_page_populate_from_record (EphySyncedTabsPage *page,
     device_name = ephy_open_tabs_record_get_client_name (record);
 
   expander = adw_expander_row_new ();
-  adw_expander_row_set_expanded (ADW_EXPANDER_ROW (expander), TRUE);
+  adw_expander_row_set_expanded (ADW_EXPANDER_ROW (expander), FALSE);
   adw_preferences_row_set_use_markup (ADW_PREFERENCES_ROW (expander), FALSE);
   adw_preferences_row_set_title (ADW_PREFERENCES_ROW (expander), device_name);
   adw_expander_row_add_prefix (ADW_EXPANDER_ROW (expander),
@@ -177,7 +178,7 @@ ephy_synced_tabs_page_populate_from_record (EphySyncedTabsPage *page,
     adw_expander_row_add_row (ADW_EXPANDER_ROW (expander), tab_row);
   }
 
-  gtk_list_box_append (GTK_LIST_BOX (page->list_box), expander);
+  adw_preferences_group_add (page->tabs_preferences_group, GTK_WIDGET (expander));
 }
 
 static void
@@ -277,7 +278,7 @@ ephy_synced_tabs_page_class_init (EphySyncedTabsPageClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class,
                                                "/org/gnome/epiphany/gtk/synced-tabs-page.ui");
 
-  gtk_widget_class_bind_template_child (widget_class, EphySyncedTabsPage, list_box);
+  gtk_widget_class_bind_template_child (widget_class, EphySyncedTabsPage, tabs_preferences_group);
 
   gtk_widget_class_add_binding_action (widget_class, GDK_KEY_Escape, GDK_NO_MODIFIER_MASK, "window.close", NULL);
 }
