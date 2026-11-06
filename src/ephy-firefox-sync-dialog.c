@@ -33,7 +33,7 @@
 #include "ephy-sync-service.h"
 #include "ephy-sync-utils.h"
 #include "ephy-time-helpers.h"
-#include "synced-tabs-dialog.h"
+#include "ephy-synced-tabs-page.h"
 
 #define FXA_OLDSYNC_SCOPE "https://identity.mozilla.com/apps/oldsync"
 
@@ -71,6 +71,7 @@ ephy_sync_frequency_new (guint frequency)
 struct _EphyFirefoxSyncDialog {
   AdwWindow parent_instance;
 
+  GtkWidget *nav_view;
   GtkWidget *sync_page_group;
   GtkWidget *sync_firefox_iframe_box;
   GtkWidget *sync_firefox_iframe_label;
@@ -1048,13 +1049,11 @@ on_sync_synced_tabs_button_clicked (GtkWidget             *button,
                                     EphyFirefoxSyncDialog *sync_dialog)
 {
   EphyOpenTabsManager *manager;
-  SyncedTabsDialog *synced_tabs_dialog;
+  EphySyncedTabsPage *synced_tabs_dialog;
 
   manager = ephy_shell_get_open_tabs_manager (ephy_shell_get_default ());
-  synced_tabs_dialog = synced_tabs_dialog_new (manager);
-  gtk_window_set_transient_for (GTK_WINDOW (synced_tabs_dialog), GTK_WINDOW (sync_dialog));
-  gtk_window_set_modal (GTK_WINDOW (synced_tabs_dialog), TRUE);
-  gtk_window_present (GTK_WINDOW (synced_tabs_dialog));
+  synced_tabs_dialog = ephy_synced_tabs_page_new (manager);
+  adw_navigation_view_push (ADW_NAVIGATION_VIEW (sync_dialog->nav_view), ADW_NAVIGATION_PAGE (synced_tabs_dialog));
 }
 
 static gchar *
@@ -1120,6 +1119,7 @@ ephy_firefox_sync_dialog_class_init (EphyFirefoxSyncDialogClass *klass)
   object_class->dispose = prefs_sync_page_dispose;
   object_class->finalize = prefs_sync_page_finalize;
 
+  gtk_widget_class_bind_template_child (widget_class, EphyFirefoxSyncDialog, nav_view);
   gtk_widget_class_bind_template_child (widget_class, EphyFirefoxSyncDialog, sync_page_group);
   gtk_widget_class_bind_template_child (widget_class, EphyFirefoxSyncDialog, sync_firefox_iframe_box);
   gtk_widget_class_bind_template_child (widget_class, EphyFirefoxSyncDialog, sync_firefox_iframe_label);

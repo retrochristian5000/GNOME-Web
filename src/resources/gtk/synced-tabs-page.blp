@@ -1,0 +1,28 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $EphySyncedTabsPage: Adw.NavigationPage {
+  title: _("Synced Tabs");
+
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {}
+
+    content: Adw.PreferencesPage {
+      Adw.PreferencesGroup local_tabs_preferences_group {
+        title: _("Local Tabs");
+
+        description: _(
+          "Open tabs that can be synced with other devices that use Firefox Sync with the this account."
+        );
+      }
+
+      Adw.PreferencesGroup tabs_preferences_group {
+        title: _("Synced Tabs");
+          description: _(
+          "The synced open tabs of your other devices that use Firefox Sync with this account."
+        );
+      }
+    };
+  };
+}
