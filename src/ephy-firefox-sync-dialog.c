@@ -33,7 +33,7 @@
 #include "ephy-sync-service.h"
 #include "ephy-sync-utils.h"
 #include "ephy-time-helpers.h"
-#include "ephy-synced-tabs-dialog.h"
+#include "ephy-synced-tabs-page.h"
 
 #define FXA_OLDSYNC_SCOPE "https://identity.mozilla.com/apps/oldsync"
 
@@ -1049,10 +1049,10 @@ on_sync_synced_tabs_button_clicked (GtkWidget             *button,
                                     EphyFirefoxSyncDialog *sync_dialog)
 {
   EphyOpenTabsManager *manager;
-  EphySyncedTabsDialog *synced_tabs_dialog;
+  EphySyncedTabsPage *synced_tabs_dialog;
 
   manager = ephy_shell_get_open_tabs_manager (ephy_shell_get_default ());
-  synced_tabs_dialog = ephy_synced_tabs_dialog_new (manager);
+  synced_tabs_dialog = ephy_synced_tabs_page_new (manager);
   adw_navigation_view_push (ADW_NAVIGATION_VIEW (sync_dialog->nav_view), ADW_NAVIGATION_PAGE (synced_tabs_dialog));
 }
 

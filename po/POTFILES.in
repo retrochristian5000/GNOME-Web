@@ -115,7 +115,7 @@ src/resources/gtk/tab-view.blp
 src/resources/gtk/webapp-additional-urls-dialog.blp
 src/resources/gtk/window.blp
 src/search-provider/ephy-search-provider.c
-src/ephy-synced-tabs-dialog.c
+src/ephy-synced-tabs-page.c
 src/webapp-provider/ephy-webapp-provider.c
 src/webextension/api/runtime.c
 src/webextension/ephy-web-extension.c

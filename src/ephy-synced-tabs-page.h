@@ -26,10 +26,10 @@
 
 G_BEGIN_DECLS
 
-#define EPHY_TYPE_SYNCED_TABS_DIALOG (ephy_synced_tabs_dialog_get_type ())
+#define EPHY_TYPE_SYNCED_TABS_PAGE (ephy_synced_tabs_page_get_type ())
 
-G_DECLARE_FINAL_TYPE (EphySyncedTabsDialog, ephy_synced_tabs_dialog, EPHY, SYNCED_TABS_DIALOG, AdwNavigationPage)
+G_DECLARE_FINAL_TYPE (EphySyncedTabsPage, ephy_synced_tabs_page, EPHY, SYNCED_TABS_PAGE, AdwNavigationPage)
 
-EphySyncedTabsDialog *ephy_synced_tabs_dialog_new (EphyOpenTabsManager *manager);
+EphySyncedTabsPage *ephy_synced_tabs_page_new (EphyOpenTabsManager *manager);
 
 G_END_DECLS
