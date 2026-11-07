@@ -105,6 +105,11 @@
 			<summary>The visibility policy for the tabs  bar.</summary>
 			<description>Controls when the tabs bar is shown. Possible values are “always” (the tabs bar is always shown), “more-than-one” (the tabs bar is only shown if there’s two or more tabs) and “never” (the tabs bar is never shown). This setting is ignored in Pantheon desktop, and “always” value is used.</description>
 		</key>
+		<key type="b" name="vertical-tabs">
+			<default>false</default>
+			<summary>Show tabs in a sidebar</summary>
+			<description>If enabled, tabs are listed vertically in a sidebar instead of the tabs bar.</description>
+		</key>
 		<key type="b" name="keep-window-open">
 			<default>false</default>
 			<summary>Keep window open when closing last tab</summary>

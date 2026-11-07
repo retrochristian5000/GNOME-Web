@@ -185,6 +185,9 @@ void window_cmd_go_home                         (GSimpleAction *action,
 void window_cmd_go_tabs_view                    (GSimpleAction *action,
                                                  GVariant      *parameter,
                                                  gpointer       user_data);
+void window_cmd_toggle_tab_sidebar              (GSimpleAction *action,
+                                                 GVariant      *parameter,
+                                                 gpointer       user_data);
 void window_cmd_change_browse_with_caret_state  (GSimpleAction *action,
                                                  GVariant      *state,
                                                  gpointer       user_data);

@@ -3177,6 +3177,14 @@ window_cmd_go_tabs_view (GSimpleAction *action,
   ephy_window_toggle_tab_overview (EPHY_WINDOW (user_data));
 }
 
+void
+window_cmd_toggle_tab_sidebar (GSimpleAction *action,
+                               GVariant      *parameter,
+                               gpointer       user_data)
+{
+  ephy_window_toggle_tab_sidebar (EPHY_WINDOW (user_data));
+}
+
 static void
 enable_browse_with_caret_state_cb (AdwAlertDialog *dialog,
                                    const char     *response,
