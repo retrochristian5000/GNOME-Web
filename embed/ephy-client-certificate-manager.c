@@ -173,11 +173,6 @@ object_details_cb (GObject      *source_object,
     g_autoptr (GTlsCertificate) tls_cert = NULL;
     g_autoptr (WebKitCredential) credential = NULL;
 
-    /* PKCS #11 pairs a certificate with its private key by CKA_ID. Labels
-     * often differ: OpenSC's PIV driver, for example, labels them
-     * "Certificate for PIV Authentication" and "PIV AUTH key". So look the
-     * key up by ID, and use the label only when the certificate has no ID.
-     */
     if (attr_id && attr_id->value && attr_id->length > 0) {
       gck_builder_add_data (&builder, CKA_ID, attr_id->value, attr_id->length);
     } else if (attr_label && attr_label->value && attr_label->length > 0) {
