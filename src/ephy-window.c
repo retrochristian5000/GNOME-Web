@@ -122,7 +122,7 @@ const struct {
   { "win.location-search", {"<Primary>K", NULL} },
   { "win.copy-location", { "<shift><Primary>C", NULL } },
   { "win.home", { "<alt>Home", NULL } },
-  { "win.tabs-view", { "<shift><Primary>O", NULL } },
+  { "win.tabs-view", { "F8", "<shift><Primary>O", NULL } },
 
   /* Toggle actions */
   { "win.browse-with-caret", { "F7", NULL } },
