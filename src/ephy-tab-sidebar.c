@@ -207,8 +207,14 @@ update_close_button_cb (GtkWidget     *row,
                         GtkStateFlags  previous_flags,
                         GtkWidget     *close_button)
 {
-  gtk_widget_set_visible (close_button,
-                          (gtk_widget_get_state_flags (row) & (GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_PRELIGHT)) != 0);
+  gboolean show_close = (gtk_widget_get_state_flags (row) & (GTK_STATE_FLAG_SELECTED | GTK_STATE_FLAG_PRELIGHT)) != 0;
+
+  gtk_widget_set_opacity (close_button, show_close ? 1 : 0);
+  gtk_widget_set_can_target (close_button, show_close);
+  gtk_widget_set_can_focus (close_button, show_close);
+  gtk_accessible_update_state (GTK_ACCESSIBLE (close_button),
+                               GTK_ACCESSIBLE_STATE_HIDDEN, !show_close,
+                               -1);
 }
 
 static gboolean
@@ -614,6 +620,9 @@ create_row (AdwTabPage     *page,
   gtk_widget_add_css_class (close_button, "flat");
   gtk_widget_add_css_class (close_button, "circular");
   gtk_widget_set_valign (close_button, GTK_ALIGN_CENTER);
+  /* Taking the focus would scroll a partly visible row into view, under the
+   * pointer, as the tab is being closed. */
+  gtk_widget_set_focus_on_click (close_button, FALSE);
   /* Same string as the AdwTab close button: reuse libadwaita's translation. */
   gtk_widget_set_tooltip_text (close_button, g_dgettext ("libadwaita", "Close Tab"));
   g_signal_connect_object (close_button, "clicked", G_CALLBACK (close_clicked_cb), self, G_CONNECT_DEFAULT);
