@@ -30,6 +30,9 @@
 #include "config.h"
 #include "ephy-tab-sidebar.h"
 
+#include <float.h>
+#include <math.h>
+
 #include <glib/gi18n.h>
 
 /* A scrolled window whose content fades out on the edges past which there is
@@ -124,6 +127,8 @@ ephy_tab_sidebar_scroller_class_init (EphyTabSidebarScrollerClass *klass)
   object_class->dispose = ephy_tab_sidebar_scroller_dispose;
   widget_class->snapshot = ephy_tab_sidebar_scroller_snapshot;
 
+  gtk_widget_class_set_css_name (widget_class, "tabsidebarscroller");
+
   gtk_widget_class_set_layout_manager_type (widget_class, GTK_TYPE_BIN_LAYOUT);
 }
 
@@ -174,6 +179,11 @@ struct _EphyTabSidebar {
   int drag_start_position;
   double drag_x;
   double drag_y;
+  guint drag_autoscroll_tick_id;
+  gint64 drag_autoscroll_prev_time;
+  GtkWidget *drag_autoscroll_scroller;
+  double drag_autoscroll_x;
+  double drag_autoscroll_y;
   guint scroll_tick_id;
   guint scroll_ticks;
 };
@@ -432,10 +442,147 @@ restore_dragged_page (EphyTabSidebar *self)
   adw_tab_view_reorder_page (self->view, self->drag_page, position);
 }
 
+/* Scrolling the hovered list while dragging near an edge, as AdwTabBox does
+ * horizontally. The pointer position is tracked in scroller coordinates from
+ * the scrollers' drop motions, then applied on frame ticks.
+ *
+ * Same speed as AdwTabBox, in pixels per millisecond. */
+#define AUTOSCROLL_SPEED 2.5
+
+static GtkAdjustment *
+scroller_vadjustment (GtkWidget *scroller)
+{
+  return gtk_scrolled_window_get_vadjustment (EPHY_TAB_SIDEBAR_SCROLLER (scroller)->scrolled_window);
+}
+
+/* The tab under (x, y), in scroller coordinates. */
+static GtkWidget *
+find_tab_at (EphyTabSidebar *self,
+             GtkWidget      *scroller,
+             double          x,
+             double          y)
+{
+  GtkWidget *box = scroller == self->pinned_scrolled_window ? GTK_WIDGET (self->pinned_box) : GTK_WIDGET (self->list);
+  GtkWidget *child;
+  graphene_point_t point;
+
+  if (!gtk_widget_compute_point (scroller, box, &GRAPHENE_POINT_INIT ((float)x, (float)y), &point))
+    return NULL;
+
+  for (child = gtk_widget_get_first_child (box); child; child = gtk_widget_get_next_sibling (child)) {
+    graphene_rect_t bounds;
+
+    if (get_page (child) &&
+        gtk_widget_compute_bounds (child, box, &bounds) &&
+        graphene_rect_contains_point (&bounds, &point))
+      return child;
+  }
+
+  return NULL;
+}
+
+static gboolean
+drag_autoscroll_cb (GtkWidget      *widget,
+                    GdkFrameClock  *frame_clock,
+                    EphyTabSidebar *self)
+{
+  GtkWidget *scroller = self->drag_autoscroll_scroller;
+  GtkWidget *box;
+  GtkWidget *tab;
+  GtkAdjustment *adjustment;
+  double value, page_size, y, area, start_threshold, end_threshold, factor;
+  gint64 time;
+  double delta_ms;
+  int tab_height = 0;
+  int offset;
+
+  time = gdk_frame_clock_get_frame_time (frame_clock);
+  delta_ms = (time - self->drag_autoscroll_prev_time) / 1000.0;
+  self->drag_autoscroll_prev_time = time;
+
+  if (!scroller || !self->view || !self->drag_page)
+    return G_SOURCE_CONTINUE;
+
+  box = scroller == self->pinned_scrolled_window ? GTK_WIDGET (self->pinned_box) : GTK_WIDGET (self->list);
+  tab = gtk_widget_get_first_child (box);
+
+  if (!tab)
+    return G_SOURCE_CONTINUE;
+
+  gtk_widget_measure (tab, GTK_ORIENTATION_VERTICAL, -1, NULL, &tab_height, NULL, NULL);
+  area = tab_height / 2.0;
+
+  if (area <= 0)
+    return G_SOURCE_CONTINUE;
+
+  adjustment = scroller_vadjustment (scroller);
+  value = gtk_adjustment_get_value (adjustment);
+  page_size = gtk_adjustment_get_page_size (adjustment);
+
+  /* Scroll when the pointer is within half a tab of an edge, faster the
+   * closer it gets, as AdwTabBox does. */
+  y = CLAMP (self->drag_autoscroll_y, 0, page_size);
+  start_threshold = area;
+  end_threshold = page_size - area;
+  factor = 0;
+
+  if (y < start_threshold)
+    factor = -(start_threshold - y) / area;
+  else if (y > end_threshold)
+    factor = (y - end_threshold) / area;
+
+  factor = adw_easing_ease (ADW_EASE_IN_CUBIC, CLAMP (factor, -1, 1));
+
+  if (G_APPROX_VALUE (factor, 0, DBL_EPSILON))
+    return G_SOURCE_CONTINUE;
+
+  if (factor > 0)
+    offset = (int)ceil (factor * delta_ms * AUTOSCROLL_SPEED);
+  else
+    offset = (int)floor (factor * delta_ms * AUTOSCROLL_SPEED);
+
+  gtk_adjustment_set_value (adjustment, value + offset);
+
+  if (G_APPROX_VALUE (gtk_adjustment_get_value (adjustment), value, DBL_EPSILON))
+    return G_SOURCE_CONTINUE;
+
+  /* The pointer does not move while the content scrolls under it, and no new
+   * drop motion is emitted for it: reorder as if it had moved. */
+  tab = find_tab_at (self, scroller, self->drag_autoscroll_x, self->drag_autoscroll_y);
+  if (tab && self->drag_page && get_page (tab) != self->drag_page)
+    move_dragged_page (self, get_page (tab));
+
+  return G_SOURCE_CONTINUE;
+}
+
+static void
+start_autoscroll (EphyTabSidebar *self)
+{
+  if (self->drag_autoscroll_tick_id)
+    return;
+
+  self->drag_autoscroll_prev_time = gdk_frame_clock_get_frame_time (gtk_widget_get_frame_clock (GTK_WIDGET (self)));
+  self->drag_autoscroll_tick_id = gtk_widget_add_tick_callback (GTK_WIDGET (self),
+                                                                (GtkTickCallback)drag_autoscroll_cb,
+                                                                self, NULL);
+}
+
+static void
+end_autoscroll (EphyTabSidebar *self)
+{
+  if (self->drag_autoscroll_tick_id) {
+    gtk_widget_remove_tick_callback (GTK_WIDGET (self), self->drag_autoscroll_tick_id);
+    self->drag_autoscroll_tick_id = 0;
+  }
+
+  self->drag_autoscroll_scroller = NULL;
+}
+
 static void
 end_drag (EphyTabSidebar *self)
 {
   g_clear_object (&self->drag_page);
+  end_autoscroll (self);
   update_dragged_tabs (self);
 }
 
@@ -511,26 +658,55 @@ tab_drag_begin_cb (GtkDragSource  *source,
 
   g_signal_connect_object (drag, "cancel", G_CALLBACK (drag_cancel_cb), self, G_CONNECT_SWAPPED);
   g_signal_connect_object (drag, "dnd-finished", G_CALLBACK (end_drag), self, G_CONNECT_SWAPPED);
+
+  start_autoscroll (self);
 }
 
+/* Accepts the drag and tracks the pointer for the autoscroll. */
 static GdkDragAction
-tab_drop_motion_cb (GtkDropTarget  *target,
-                    double          x,
-                    double          y,
-                    EphyTabSidebar *self)
+track_drag_cb (GtkDropTarget  *target,
+               double          x,
+               double          y,
+               EphyTabSidebar *self)
 {
-  GtkWidget *tab = gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (target));
   const GValue *value = gtk_drop_target_get_value (target);
-  AdwTabPage *page = get_page (tab);
 
   /* Only pages dragged from this sidebar. */
   if (!value || !self->view || !self->drag_page || g_value_get_object (value) != self->drag_page)
     return 0;
 
-  if (page != self->drag_page)
-    move_dragged_page (self, page);
+  self->drag_autoscroll_scroller = gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (target));
+  self->drag_autoscroll_x = x;
+  self->drag_autoscroll_y = y;
 
   return GDK_ACTION_MOVE;
+}
+
+static GdkDragAction
+scroller_drop_motion_cb (GtkDropTarget  *target,
+                         double          x,
+                         double          y,
+                         EphyTabSidebar *self)
+{
+  GtkWidget *scroller = gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (target));
+  GtkWidget *tab;
+
+  if (!track_drag_cb (target, x, y, self))
+    return 0;
+
+  tab = find_tab_at (self, scroller, x, y);
+  if (tab && get_page (tab) != self->drag_page)
+    move_dragged_page (self, get_page (tab));
+
+  return GDK_ACTION_MOVE;
+}
+
+static void
+scroller_drag_leave_cb (GtkDropTarget  *target,
+                        EphyTabSidebar *self)
+{
+  if (self->drag_autoscroll_scroller == gtk_event_controller_get_widget (GTK_EVENT_CONTROLLER (target)))
+    self->drag_autoscroll_scroller = NULL;
 }
 
 static gboolean
@@ -553,7 +729,6 @@ setup_tab (EphyTabSidebar *self,
            AdwTabPage     *page)
 {
   GtkDragSource *drag_source = gtk_drag_source_new ();
-  GtkDropTarget *drop_target = gtk_drop_target_new (ADW_TYPE_TAB_PAGE, GDK_ACTION_MOVE);
   GtkGesture *click = gtk_gesture_click_new ();
   GtkGesture *middle_click = gtk_gesture_click_new ();
 
@@ -569,12 +744,6 @@ setup_tab (EphyTabSidebar *self,
   g_signal_connect_object (drag_source, "prepare", G_CALLBACK (tab_drag_prepare_cb), self, G_CONNECT_DEFAULT);
   g_signal_connect_object (drag_source, "drag-begin", G_CALLBACK (tab_drag_begin_cb), self, G_CONNECT_DEFAULT);
   gtk_widget_add_controller (tab, GTK_EVENT_CONTROLLER (drag_source));
-
-  /* Preloaded, so that motion can check the dragged page. */
-  gtk_drop_target_set_preload (drop_target, TRUE);
-  g_signal_connect_object (drop_target, "motion", G_CALLBACK (tab_drop_motion_cb), self, G_CONNECT_DEFAULT);
-  g_signal_connect_object (drop_target, "drop", G_CALLBACK (tab_drop_cb), self, G_CONNECT_DEFAULT);
-  gtk_widget_add_controller (tab, GTK_EVENT_CONTROLLER (drop_target));
 
   g_object_set_data_full (G_OBJECT (tab), PAGE_KEY, g_object_ref (page), g_object_unref);
   update_dragged_tab (tab, self);
@@ -961,6 +1130,7 @@ ephy_tab_sidebar_dispose (GObject *object)
 
   ephy_tab_sidebar_set_view (self, NULL);
   g_clear_handle_id (&self->reset_setup_menu_id, g_source_remove);
+  end_autoscroll (self);
   g_clear_object (&self->drag_page);
   if (self->scroll_tick_id) {
     gtk_widget_remove_tick_callback (GTK_WIDGET (self->list), self->scroll_tick_id);
@@ -1042,6 +1212,19 @@ ephy_tab_sidebar_init (EphyTabSidebar *self)
 
   self->scrolled_window = ephy_tab_sidebar_scroller_new (GTK_WIDGET (self->list));
   gtk_widget_set_visible (self->scrolled_window, FALSE);
+
+  /* Keep drop targets on the scrollers: reordering recreates the tabs. */
+  for (guint i = 0; i < 2; i++) {
+    GtkWidget *scroller = i == 0 ? self->pinned_scrolled_window : self->scrolled_window;
+    GtkDropTarget *target = gtk_drop_target_new (ADW_TYPE_TAB_PAGE, GDK_ACTION_MOVE);
+
+    gtk_drop_target_set_preload (target, TRUE);
+    g_signal_connect_object (target, "enter", G_CALLBACK (track_drag_cb), self, G_CONNECT_DEFAULT);
+    g_signal_connect_object (target, "motion", G_CALLBACK (scroller_drop_motion_cb), self, G_CONNECT_DEFAULT);
+    g_signal_connect_object (target, "leave", G_CALLBACK (scroller_drag_leave_cb), self, G_CONNECT_DEFAULT);
+    g_signal_connect_object (target, "drop", G_CALLBACK (tab_drop_cb), self, G_CONNECT_DEFAULT);
+    gtk_widget_add_controller (scroller, GTK_EVENT_CONTROLLER (target));
+  }
 
   /* Icon only: outside of header bars, buttons have an icon or a label. */
   new_tab_button = gtk_button_new_from_icon_name ("tab-new-symbolic");
