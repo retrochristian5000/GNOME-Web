@@ -1234,6 +1234,9 @@ private_script_world_window_object_cleared_cb (WebKitScriptWorld       *world,
                                                                            G_TYPE_UINT64, webkit_web_page_get_id (page),
                                                                            G_TYPE_UINT64, webkit_frame_get_id (frame),
                                                                            G_TYPE_NONE);
+    g_autoptr (JSCValue) js_serializer = NULL;
+    g_autoptr (JSCValue) js_observe_result = NULL;
+
     jsc_value_object_set_property (js_ephy, "passwordManager", js_password_manager);
 
     js_function = jsc_value_new_function (js_context,
@@ -1265,6 +1268,19 @@ private_script_world_window_object_cleared_cb (WebKitScriptWorld       *world,
                                           G_TYPE_UINT64, G_TYPE_UINT64);
     jsc_value_object_set_property (js_ephy, "queryPassword", js_function);
     g_clear_object (&js_function);
+
+    js_serializer = jsc_value_new_function (js_context,
+                                            "passwordFormMessageSerializer",
+                                            G_CALLBACK (password_form_message_serializer), NULL, NULL,
+                                            G_TYPE_STRING, 2,
+                                            G_TYPE_UINT64, G_TYPE_BOOLEAN);
+    js_observe_result = jsc_value_object_invoke_method (js_ephy,
+                                                        "observeFormlessPasswordFields",
+                                                        G_TYPE_UINT64, webkit_web_page_get_id (page),
+                                                        G_TYPE_UINT64, webkit_frame_get_id (frame),
+                                                        JSC_TYPE_VALUE, js_serializer,
+                                                        G_TYPE_NONE);
+    (void)js_observe_result;
   }
 
   js_function = jsc_value_new_function (js_context,

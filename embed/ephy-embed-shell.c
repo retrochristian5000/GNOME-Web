@@ -416,13 +416,9 @@ web_process_extension_password_manager_save_real (EphyEmbedShell *shell,
   if (!origin || !target_origin)
     return;
 
-  /* Both password and password field are required. */
-  if (!password || !password_field)
+  /* Password is required; password_field may be NULL for inputs without name/id. */
+  if (!password)
     return;
-
-  /* The username field is required if username is present. */
-  if (username && !username_field)
-    g_clear_pointer (&username, g_free);
 
   /* The username is required if username field is present. */
   if (!username && username_field)

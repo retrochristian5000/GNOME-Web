@@ -682,9 +682,10 @@ Ephy.formControlsAssociated = function(pageID, frameID, elements, serializer)
         if (!(element instanceof HTMLFormElement))
             continue;
 
-        const formManager = new Ephy.FormManager(pageID, frameID, element, serializer);
-        formManager.preFillForms();
-        Ephy.FormManager.managers.push(formManager);
+        if (!Ephy.FormManager.managerForForm(element)) {
+            const formManager = new Ephy.FormManager(pageID, frameID, element, serializer);
+            formManager.preFillForms();
+        }
 
         formElements.push(element);
     }
@@ -723,6 +724,87 @@ Ephy.formControlsAssociated = function(pageID, frameID, elements, serializer)
     }
 };
 
+Ephy.observeFormlessPasswordFields = function(pageID, frameID, serializer)
+{
+    if (Ephy._observingFormlessPasswordFields)
+        return;
+    Ephy._observingFormlessPasswordFields = true;
+
+    const checkPasswordFields = () => {
+        const passwords = Ephy.findPasswordFields(document);
+        if (!passwords.length)
+            return;
+
+        const formsToPrefill = new Set();
+        for (const el of passwords) {
+            formsToPrefill.add(el.form || document);
+        }
+
+        for (const form of formsToPrefill) {
+            let manager = Ephy.FormManager.managerForForm(form);
+            if (!manager)
+                manager = new Ephy.FormManager(pageID, frameID, form, serializer);
+            manager.preFillForms();
+        }
+    };
+
+    const nodeHasPasswordField = (node) => {
+        if (!(node instanceof Element))
+            return false;
+        if (node instanceof HTMLInputElement && node.type === 'password')
+            return true;
+        return node.querySelector('input[type="password"]') !== null;
+    };
+
+    const startObserver = () => {
+        checkPasswordFields();
+
+        const target = document.documentElement || document;
+        if (!target)
+            return;
+
+        const observer = new MutationObserver((mutations) => {
+            let addedPassword = false;
+            let removedPassword = false;
+
+            for (const mutation of mutations) {
+                if (mutation.type === 'attributes') {
+                    if (mutation.target instanceof HTMLInputElement && mutation.target.type === 'password')
+                        addedPassword = true;
+                    continue;
+                }
+                for (const node of mutation.addedNodes) {
+                    if (nodeHasPasswordField(node)) {
+                        addedPassword = true;
+                        break;
+                    }
+                }
+                for (const node of mutation.removedNodes) {
+                    if (nodeHasPasswordField(node)) {
+                        removedPassword = true;
+                        break;
+                    }
+                }
+            }
+
+            if (removedPassword) {
+                for (const manager of Ephy.FormManager.managers)
+                    manager.handlePendingSubmission();
+            }
+
+            if (addedPassword)
+                checkPasswordFields();
+        });
+
+        observer.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ['type'] });
+    };
+
+    if (document.readyState === 'loading')
+        document.addEventListener('DOMContentLoaded', startObserver, { once: true });
+    else
+        startObserver();
+};
+
 Ephy.handleFormSubmission = function(pageID, frameID, form)
 {
     // FIXME: Find out: is it really possible to have multiple frames with same window object???
@@ -736,7 +818,6 @@ Ephy.handleFormSubmission = function(pageID, frameID, form)
 
     if (!formManager) {
         formManager = new Ephy.FormManager(pageID, frameID, form);
-        Ephy.FormManager.managers.push(formManager);
     }
 
     formManager.handleFormSubmission();
@@ -893,6 +974,8 @@ Ephy.FormManager = class FormManager
     #preFillUserMenu = null;
     #elementBeingAutoFilled = null;
     #submissionHandled = false;
+    #cachedFormAuth = null;
+    #lastSubmittedKey = null;
 
     constructor(pageID, frameID, form, serializer)
     {
@@ -902,6 +985,11 @@ Ephy.FormManager = class FormManager
         this.#passwordFormMessageSerializer = serializer;
 
         this.#form.addEventListener('focus', this.#formFocused.bind(this), true);
+        this.#form.addEventListener('input', this.#onInputChanged.bind(this), true);
+        this.#form.addEventListener('change', this.#onInputChanged.bind(this), true);
+        this.#form.addEventListener('keydown', this.#onKeyDown.bind(this), true);
+        this.#form.addEventListener('click', this.#onClick.bind(this), true);
+        window.addEventListener('pagehide', this.handlePendingSubmission.bind(this));
 
         Ephy.FormManager.managers.push(this);
     }
@@ -926,10 +1014,84 @@ Ephy.FormManager = class FormManager
         return this.#elementBeingAutoFilled === element;
     }
 
+    #onInputChanged(event)
+    {
+        if (!(event.target instanceof HTMLInputElement))
+            return;
+
+        if (this.isAutoFilling(event.target))
+            return;
+
+        const formAuth = this.#generateFormAuth(false);
+        if (formAuth && formAuth.password) {
+            this.#cachedFormAuth = {
+                origin: formAuth.origin,
+                targetOrigin: formAuth.targetOrigin,
+                username: formAuth.username,
+                usernameField: formAuth.usernameField,
+                password: formAuth.password,
+                passwordField: formAuth.passwordField,
+            };
+            const key = `${formAuth.origin}|${formAuth.username || ''}|${formAuth.password}`;
+            if (key !== this.#lastSubmittedKey)
+                this.#submissionHandled = false;
+        }
+    }
+
+    #onKeyDown(event)
+    {
+        if (event.key !== 'Enter')
+            return;
+        if (!(event.target instanceof HTMLInputElement))
+            return;
+        if (!this.#cachedFormAuth || !this.#cachedFormAuth.password)
+            return;
+
+        setTimeout(() => this.handlePendingSubmission(), 0);
+    }
+
+    #onClick(event)
+    {
+        if (!this.#cachedFormAuth || !this.#cachedFormAuth.password)
+            return;
+        if (!(event.target instanceof Element))
+            return;
+
+        const button = event.target.closest('button, input[type="submit"], input[type="button"], [role="button"]');
+        if (!button)
+            return;
+
+        // Ignore password visibility toggle buttons (e.g. Show/Hide Password).
+        const passwordFields = this.#findPasswordFields();
+        const passwordNodesBefore = passwordFields ? passwordFields.map(f => f.element) : [];
+
+        setTimeout(() => {
+            for (const node of passwordNodesBefore) {
+                if (node.isConnected && node.type !== 'password')
+                    return;
+            }
+            this.handlePendingSubmission();
+        }, 150);
+    }
+
+    handlePendingSubmission()
+    {
+        if (!this.#cachedFormAuth || !this.#cachedFormAuth.password)
+            return;
+
+        this.handleFormSubmission();
+    }
+
     preFillForms()
     {
         if (!Ephy.shouldRememberPasswords())
             return;
+
+        if (this.#cachedFormAuth && this.#cachedFormAuth.password) {
+            const currentAuth = this.#generateFormAuth(true);
+            if (!currentAuth || !currentAuth.passwordNode || currentAuth.passwordNode.value)
+                return;
+        }
 
         const formAuth = this.#generateFormAuth(true);
         if (!formAuth) {
@@ -983,11 +1145,19 @@ Ephy.FormManager = class FormManager
         if (this.#submissionHandled)
             return;
 
-        this.#submissionHandled = true;
-
-        const formAuth = this.#generateFormAuth(false);
+        let formAuth = this.#generateFormAuth(false);
+        if (!formAuth || !formAuth.password)
+            formAuth = this.#cachedFormAuth;
         if (!formAuth || !formAuth.password)
             return;
+
+        const key = `${formAuth.origin}|${formAuth.username || ''}|${formAuth.password}`;
+        if (key === this.#lastSubmittedKey)
+            return;
+
+        this.#submissionHandled = true;
+        this.#lastSubmittedKey = key;
+        this.#cachedFormAuth = null;
 
         let permission = Ephy.permissionsManager.permission(Ephy.PermissionType.SAVE_PASSWORD, formAuth.origin);
         if (permission === Ephy.Permission.DENY) {
@@ -1057,6 +1227,9 @@ Ephy.FormManager = class FormManager
         // consider that for autofill purposes. It's OK because the target URL
         // we save into the password manager is only a heuristic.
 
+        if (!(this.#form instanceof HTMLFormElement))
+            return null;
+
         const action = this.#form.getAttribute('action');
         return action ? new URL(action, window.location) : null;
     }
@@ -1074,18 +1247,22 @@ Ephy.FormManager = class FormManager
 
     #containsPasswordElement()
     {
-        for (const element of this.#form.elements) {
-            if (element instanceof HTMLInputElement) {
-                if (element.type === 'password' || element.type === 'adminpw')
-                    return true;
+        if (this.#form instanceof HTMLFormElement) {
+            for (const element of this.#form.elements) {
+                if (element instanceof HTMLInputElement) {
+                    if (element.type === 'password' || element.type === 'adminpw')
+                        return true;
+                }
             }
+            return false;
         }
-        return false;
+
+        return this.#form.querySelector('input[type="password"], input[type="adminpw"]') !== null;
     }
 
     #formFocused(event)
     {
-        if (!this.#containsPasswordElement())
+        if (!this.#passwordFormMessageSerializer || !this.#containsPasswordElement())
             return;
 
         let isFormActionInsecure = false;
@@ -1105,11 +1282,14 @@ Ephy.FormManager = class FormManager
 
     #findPasswordFields()
     {
-        const elements = Ephy.findPasswordFields(this.#form);
+        let elements = Ephy.findPasswordFields(this.#form);
+        if (!(this.#form instanceof HTMLFormElement))
+            elements = elements.filter(element => !element.form);
+
         if (elements.length > 3)
             return null;
 
-        const formElements = Array.from(this.#form.elements);
+        const formElements = this.#form instanceof HTMLFormElement ? Array.from(this.#form.elements) : [];
         return elements.map(element => ({
             'element': element,
             'index': formElements.indexOf(element)
@@ -1143,7 +1323,14 @@ Ephy.FormManager = class FormManager
         // submits login data, because otherwise all the fields are empty. In that
         // case just pick the first field.
         let passwordNodeIndex = 0;
-        if (!forAutofill && passwordNodes.length !== 1) {
+        if (forAutofill && passwordNodes.length > 1) {
+            const visibleIndex = passwordNodes.findIndex(node => {
+                const el = node.element;
+                return el.offsetWidth > 0 && el.offsetHeight > 0;
+            });
+            if (visibleIndex >= 0)
+                passwordNodeIndex = visibleIndex;
+        } else if (!forAutofill && passwordNodes.length !== 1) {
             for (const node of passwordNodes) {
                 if (Ephy.FormManager.#isNewPasswordElement(node.element))
                     return { 'usernameNode' : usernameNode, 'passwordNode' : node };
@@ -1231,15 +1418,17 @@ Ephy.FormManager = class FormManager
         }
 
         formAuth.password = formAuth.passwordNode.value;
-
-        if (formAuth.passwordNode.name)
-            formAuth.passwordField = formAuth.passwordNode.name;
-        else if (formAuth.passwordNode.id)
-            formAuth.passwordField = formAuth.passwordNode.id;
-        else
-            return null;
+        formAuth.passwordField = formAuth.passwordNode.name || formAuth.passwordNode.id || null;
 
         return formAuth;
+    }
+
+    #autoFillElement(element, value) {
+        this.#elementBeingAutoFilled = element;
+        Ephy.autoFill(element, value);
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+        this.#elementBeingAutoFilled = null;
     }
 
     #protectFormElement(element, value) {
@@ -1271,7 +1460,7 @@ Ephy.FormManager = class FormManager
         let id = setInterval(() => {
             if (element.value === '') {
                 Ephy.log(`Protected input ${element.id} has been cleared, re-autofilling...`);
-                Ephy.autoFill(element, value);
+                this.#autoFillElement(element, value);
             }
         }, 50); // 50 milliseconds
 
@@ -1285,6 +1474,8 @@ Ephy.FormManager = class FormManager
         // Stop monitoring if the user edits the field, so we don't
         // re-autocomplete an autocompletion deleted by the user.
         element.addEventListener('input', (event) => {
+            if (!event.isTrusted)
+                return;
             if (id !== 0) {
                 clearInterval(id);
                 id = 0;
@@ -1296,18 +1487,14 @@ Ephy.FormManager = class FormManager
         Ephy.log('Received success on password query for user ' + authInfo.username + ' with password (hidden)');
 
         if (formAuth.usernameNode && authInfo.username) {
-            this.#elementBeingAutoFilled = formAuth.usernameNode;
-            Ephy.autoFill(formAuth.usernameNode, authInfo.username);
+            this.#autoFillElement(formAuth.usernameNode, authInfo.username);
             Ephy.log(`Autofilled usernameNode ${formAuth.usernameNode.id} with username ${authInfo.username}`);
-            this.#elementBeingAutoFilled = null;
             this.#protectFormElement(formAuth.usernameNode, authInfo.username);
         }
 
         if (authInfo.password) {
-            this.#elementBeingAutoFilled = formAuth.passwordNode;
-            Ephy.autoFill(formAuth.passwordNode, authInfo.password);
+            this.#autoFillElement(formAuth.passwordNode, authInfo.password);
             Ephy.log(`Autofilled passwordNode ${formAuth.passwordNode.id} with password (hidden)`);
-            this.#elementBeingAutoFilled = null;
             this.#protectFormElement(formAuth.passwordNode, authInfo.password);
         }
     }
