@@ -463,6 +463,37 @@ create_web_extension_data (const char   *extension_guid,
 }
 
 static void
+invoke_ephy_string_method_in_frame (EphyWebProcessExtension *extension,
+                                    guint64                  frame_id,
+                                    const char              *method_name,
+                                    const char              *arg)
+{
+  WebKitFrame *frame;
+  g_autoptr (JSCContext) js_context = NULL;
+  g_autoptr (JSCValue) js_ephy = NULL;
+  g_autoptr (JSCValue) js_result = NULL;
+
+  g_assert (extension->frames_map);
+
+  frame = g_hash_table_lookup (extension->frames_map, &frame_id);
+  if (!frame)
+    return;
+
+  js_context = webkit_frame_get_js_context_for_script_world (frame, extension->script_world);
+  if (!js_context)
+    return;
+
+  js_ephy = jsc_context_get_value (js_context, "Ephy");
+  if (!js_ephy || jsc_value_is_undefined (js_ephy))
+    return;
+
+  js_result = jsc_value_object_invoke_method (js_ephy, method_name,
+                                              G_TYPE_STRING, arg,
+                                              G_TYPE_NONE);
+  (void)js_result;
+}
+
+static void
 generate_password_in_frame (EphyWebProcessExtension *extension,
                             guint64                  frame_id)
 {
@@ -548,6 +579,26 @@ web_page_received_message (WebKitWebPage     *web_page,
       g_variant_get (params, "t", &frame_id);
 
     generate_password_in_frame (extension, frame_id);
+  } else if (g_strcmp0 (name, "PasswordManager.SelectUser") == 0) {
+    GVariant *parameters = webkit_user_message_get_parameters (message);
+    guint64 frame_id;
+    const char *username;
+
+    if (!parameters)
+      return FALSE;
+
+    g_variant_get (parameters, "(t&s)", &frame_id, &username);
+    invoke_ephy_string_method_in_frame (extension, frame_id, "onPasswordUserSelected", username);
+  } else if (g_strcmp0 (name, "PasswordManager.FillGeneratedPassword") == 0) {
+    GVariant *parameters = webkit_user_message_get_parameters (message);
+    guint64 frame_id;
+    const char *password;
+
+    if (!parameters)
+      return FALSE;
+
+    g_variant_get (parameters, "(t&s)", &frame_id, &password);
+    invoke_ephy_string_method_in_frame (extension, frame_id, "onGeneratedPasswordAccepted", password);
   } else if (g_strcmp0 (name, "EphyAutofill.Fill") == 0) {
     GVariant *parameters;
     guint64 frame_id;

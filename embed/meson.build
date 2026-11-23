@@ -28,6 +28,7 @@ libephyembed_sources = [
   'ephy-filters-manager.c',
   'ephy-find-toolbar.c',
   'ephy-floating-bar.c',
+  'ephy-password-popover.c',
   'ephy-reader-handler.c',
   'ephy-search-entry.c',
   'ephy-view-source-handler.c',
@@ -48,6 +49,7 @@ libephyembed_deps = [
   libsecret_dep,
   libsoup_dep,
   m_dep,
+  pwquality_dep,
   webkitgtk_dep
 ]
 

@@ -29,8 +29,6 @@ Ephy.generateAndFillPassword = function() {
     }
 };
 
-Ephy.activePasswordFlyout = null;
-
 Ephy.findUsernameElement = function(passwordElement) {
     const form = passwordElement.form;
     if (form) {
@@ -145,287 +143,31 @@ Ephy.findTargetPasswordFields = function(passwordElement) {
     return [passwordElement];
 };
 
+Ephy._activeGeneratePasswordElement = null;
+
 Ephy.showGeneratePasswordFlyout = function(passwordElement) {
     if (!Ephy.shouldRememberPasswords())
         return;
 
-    if (Ephy.activePasswordFlyout) {
-        Ephy.activePasswordFlyout.dismiss();
-    }
-
-    const { mainDiv, innerDiv } = Ephy.DropdownMenu.create(passwordElement, 'ephy-generate-secure-password-container');
-
-    const row = document.createElement('div');
-    row.className = 'ephy-dropdown-row';
-
-    const anchor = document.createElement('a');
-    anchor.className = 'ephy-dropdown-fill-link';
-    anchor.href = '#';
-
-    // Create the Key Icon
-    const iconSpan = document.createElement('span');
-    iconSpan.className = 'ephy-dropdown-icon';
-
-    const keyIcon = document.createElement('img');
-    keyIcon.src = 'ephy-resource:///org/gnome/epiphany/page-icons/password-generator.svg';
-    keyIcon.width = 16;
-    keyIcon.height = 16;
-    iconSpan.appendChild(keyIcon);
-    anchor.appendChild(iconSpan);
-
-    // Create the text container with title & subtitle (preview)
-    const textDiv = document.createElement('div');
-    textDiv.className = 'ephy-dropdown-text';
-
-    const titleSpan = document.createElement('span');
-    titleSpan.className = 'ephy-dropdown-title';
-    titleSpan.textContent = Ephy._("Use and Save Suggested Password");
-    textDiv.appendChild(titleSpan);
-
-    const passSpan = document.createElement('span');
-    passSpan.className = 'ephy-dropdown-subtitle';
-    textDiv.appendChild(passSpan);
-
-    anchor.appendChild(textDiv);
-    row.appendChild(anchor);
-
-    // Create the Refresh Button
-    const refreshBtn = document.createElement('button');
-    refreshBtn.type = 'button';
-    refreshBtn.className = 'ephy-dropdown-refresh-btn';
-    refreshBtn.title = Ephy._("Generate new password");
-
-    const refreshIcon = document.createElement('img');
-    refreshIcon.src = 'ephy-resource:///org/gnome/epiphany/page-icons/password-generator-refresh.svg';
-    refreshIcon.width = 14;
-    refreshIcon.height = 14;
-    refreshBtn.appendChild(refreshIcon);
-    row.appendChild(refreshBtn);
-    innerDiv.appendChild(row);
-
-    let generatedPassword = "";
-
-    const updatePassword = () => {
-        generatedPassword = Ephy.generateSecurePassword();
-        passSpan.textContent = generatedPassword;
-    };
-
-    updatePassword();
-
-    const removeMenu = () => {
-        const menu = document.getElementById('ephy-generate-secure-password-container');
-        if (menu)
-            menu.parentNode.removeChild(menu);
-
-        passwordElement.removeEventListener('blur', removeMenu);
-        passwordElement.removeEventListener('keydown', onKeyDown);
-        document.removeEventListener('mousedown', onDocMouseDown, true);
-
-        if (Ephy.activePasswordFlyout === flyout) {
-            Ephy.activePasswordFlyout = null;
-        }
-    };
-
-    const onKeyDown = (event) => {
-        if (event.key === 'Escape') {
-            removeMenu();
-            event.preventDefault();
-        }
-    };
-
-    const onDocMouseDown = (event) => {
-        const menu = document.getElementById('ephy-generate-secure-password-container');
-        if (menu && !menu.contains(event.target) && event.target !== passwordElement) {
-            removeMenu();
-        }
-    };
-
-    const flyout = {
-        dismiss: removeMenu
-    };
-    Ephy.activePasswordFlyout = flyout;
-
-    anchor.addEventListener('mousedown', event => {
-        event.preventDefault();
-        const targets = Ephy.findTargetPasswordFields(passwordElement);
-        for (const target of targets) {
-            target.value = generatedPassword;
-            target.dispatchEvent(new Event('input', { bubbles: true }));
-            target.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-
-        Ephy.saveGeneratedPassword(passwordElement, generatedPassword);
-
-        removeMenu();
-    }, true);
-
-    refreshBtn.addEventListener('mousedown', event => {
-        event.preventDefault();
-        event.stopPropagation();
-        updatePassword();
-    }, true);
-
-    passwordElement.addEventListener('blur', removeMenu);
-    passwordElement.addEventListener('keydown', onKeyDown);
-    document.addEventListener('mousedown', onDocMouseDown, true);
-
-    document.body.appendChild(mainDiv);
+    Ephy._activeGeneratePasswordElement = passwordElement;
+    Ephy.passwordManager.showGenerate(window.location.origin, passwordElement.getBoundingClientRect());
 };
- 
-Ephy.DropdownMenu = class DropdownMenu {
-    static #stylesAdded = false;
 
-    static addStyles()
-    {
-        if (DropdownMenu.#stylesAdded)
-            return;
+Ephy.onGeneratedPasswordAccepted = function(generatedPassword) {
+    const passwordElement = Ephy._activeGeneratePasswordElement;
+    Ephy._activeGeneratePasswordElement = null;
 
-        const styles = `
-          .ephy-dropdown {
-            position: absolute;
-            display: inline-block;
-            z-index: 2147483647;
-          }
+    if (!passwordElement || !passwordElement.isConnected || !generatedPassword)
+        return;
 
-          .ephy-dropdown-content {
-            display: block;
-            position: absolute;
-            padding: 6px 0px;
-            background-color: #ffffff;
-            background-clip: padding-box;
-            border: 1px solid rgba(0, 0, 0, 0.15);
-            border-radius: 8px;
-            min-width: 200px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
-            z-index: 1;
-          }
-
-          .ephy-dropdown-content a {
-            color: #2e2e2e;
-            padding: 10px 14px;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-family: system-ui, -apple-system, sans-serif;
-            font-size: 13.5px;
-            cursor: default;
-            -webkit-user-modify: read-only ! important;
-          }
-
-          .ephy-dropdown-content a:hover {
-            background-color: #f3f3f5;
-            color: #000000;
-          }
-
-          .ephy-dropdown-icon {
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #5c5c5c;
-          }
-
-          .ephy-dropdown-text {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            text-align: left;
-          }
-
-          .ephy-dropdown-title {
-            display: block;
-            font-weight: 600;
-            font-size: 13px;
-            line-height: 1.2;
-          }
-
-          .ephy-dropdown-subtitle {
-            display: block;
-            font-family: monospace;
-            font-size: 11.5px;
-            color: #6e6e73;
-            line-height: 1.2;
-          }
-
-          .ephy-dropdown-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-          }
-
-          .ephy-dropdown-fill-link {
-            color: #2e2e2e;
-            padding: 10px 14px;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-family: system-ui, -apple-system, sans-serif;
-            font-size: 13.5px;
-            cursor: default;
-            flex-grow: 1;
-            -webkit-user-modify: read-only ! important;
-          }
-
-          .ephy-dropdown-fill-link:hover {
-            background-color: #f3f3f5;
-            color: #000000;
-          }
-
-          .ephy-dropdown-refresh-btn {
-            background: none;
-            border: none;
-            padding: 8px;
-            cursor: default;
-            color: #5c5c5c;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 8px;
-            transition: background-color 0.2s, color 0.2s;
-          }
-
-          .ephy-dropdown-refresh-btn:hover {
-            background-color: #e4e4e7;
-            color: #000000;
-          }
-
-          .ephy-dropdown-refresh-btn img {
-            transition: filter 0.2s;
-          }
-
-          .ephy-dropdown-refresh-btn:hover img {
-            filter: brightness(0);
-          }
-        `;
-
-        const styleSheet = document.createElement("style");
-        styleSheet.textContent = styles;
-        document.head.appendChild(styleSheet);
-        DropdownMenu.#stylesAdded = true;
+    const targets = Ephy.findTargetPasswordFields(passwordElement);
+    for (const target of targets) {
+        target.value = generatedPassword;
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+        target.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    static create(inputElement, id)
-    {
-        DropdownMenu.addStyles();
-
-        const mainDiv = document.createElement('div');
-        mainDiv.id = id;
-        mainDiv.className = 'ephy-dropdown';
-
-        const elementRect = inputElement.getBoundingClientRect();
-        mainDiv.style.width = inputElement.offsetWidth + 'px';
-        mainDiv.style.left = (elementRect.left + window.scrollX) + 'px';
-        mainDiv.style.top = (elementRect.top + elementRect.height + window.scrollY) + 'px';
-
-        const innerDiv = document.createElement('div');
-        innerDiv.className = 'ephy-dropdown-content';
-        mainDiv.appendChild(innerDiv);
-
-        return { mainDiv, innerDiv };
-    }
+    Ephy.saveGeneratedPassword(passwordElement, generatedPassword);
 };
 
 Ephy.getOpenSearchLinks = function()
@@ -551,6 +293,14 @@ Ephy.getWebAppIcon = function(baseURL)
     return { 'url' : new URL('/favicon.ico', baseURL).href, 'color' : null };
 };
 
+Ephy._activeUserMenu = null;
+
+Ephy.onPasswordUserSelected = function(username)
+{
+    if (Ephy._activeUserMenu)
+        Ephy._activeUserMenu.selectUser(username);
+};
+
 Ephy.PreFillUserMenu = class PreFillUserMenu
 {
     #manager;
@@ -558,8 +308,8 @@ Ephy.PreFillUserMenu = class PreFillUserMenu
     #userElement;
     #users;
     #passwordElement;
-    #selected = null;
     #wasEdited = false;
+    #abortController = new AbortController();
 
     constructor(manager, formAuth, users)
     {
@@ -569,11 +319,35 @@ Ephy.PreFillUserMenu = class PreFillUserMenu
         this.#users = users;
         this.#passwordElement = formAuth.passwordNode;
 
-        this.#userElement.addEventListener('input', this.#onInput.bind(this), true);
-        this.#userElement.addEventListener('mouseup', this.#onMouseUp.bind(this), false);
-        this.#userElement.addEventListener('keydown', this.#onKeyDown.bind(this), false);
-        this.#userElement.addEventListener('change', this.#removeMenu, false);
-        this.#userElement.addEventListener('blur', this.#removeMenu, false);
+        const signal = this.#abortController.signal;
+
+        if (this.#userElement) {
+            this.#userElement.addEventListener('input', this.#onInput.bind(this), { capture: true, signal });
+            this.#userElement.addEventListener('mouseup', () => this.#showMenu(this.#userElement, !this.#wasEdited), { signal });
+            this.#userElement.addEventListener('keydown', event => this.#onKeyDown(event, this.#userElement), { signal });
+        }
+
+        if (this.#passwordElement) {
+            this.#passwordElement.addEventListener('mouseup', () => this.#showMenu(this.#passwordElement, true), { signal });
+            this.#passwordElement.addEventListener('keydown', event => this.#onKeyDown(event, this.#passwordElement), { signal });
+        }
+    }
+
+    destroy()
+    {
+        if (Ephy._activeUserMenu === this)
+            Ephy._activeUserMenu = null;
+        this.#abortController.abort();
+    }
+
+    selectUser(username)
+    {
+        if (this.#userElement)
+            this.#userElement.value = username;
+        this.#formAuth.username = username;
+        if (this.#passwordElement)
+            this.#passwordElement.value = '';
+        this.#manager.preFill(this.#formAuth);
     }
 
     #onInput(event)
@@ -582,95 +356,29 @@ Ephy.PreFillUserMenu = class PreFillUserMenu
             return;
 
         this.#wasEdited = true;
-        this.#removeMenu();
-        this.#showMenu(false);
     }
 
-    #onMouseUp(event)
+    #onKeyDown(event, anchorElement)
     {
-        if (document.getElementById('ephy-user-choices-container'))
-            return;
-
-        this.#showMenu(!this.#wasEdited);
-    }
-
-    #onKeyDown(event)
-    {
-        if (event.key === 'Escape') {
-            this.#removeMenu();
-            return;
-        }
-
         if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp')
             return;
 
-        const container = document.getElementById('ephy-user-choices-container');
-        if (!container) {
-            this.#showMenu(!this.#wasEdited);
-            return;
-        }
-
-        let newSelect = null;
-        if (this.#selected)
-            newSelect = event.key !== 'ArrowUp' ? this.#selected.previousSibling : this.#selected.nextSibling;
-
-        if (!newSelect)
-            newSelect = event.key !== 'ArrowUp' ? container.firstElementChild.lastElementChild : container.firstElementChild.firstElementChild;
-
-        if (newSelect) {
-            this.#selected = newSelect;
-            this.#userElement.value = this.#selected.firstElementChild.textContent;
-            this.#usernameSelected();
-        } else {
-            this.#passwordElement.value = '';
-        }
-
+        const showAll = anchorElement === this.#passwordElement || !this.#wasEdited;
+        this.#showMenu(anchorElement, showAll);
         event.preventDefault();
     }
 
-    #showMenu(showAll)
+    #showMenu(anchorElement, showAll)
     {
-        const { mainDiv, innerDiv } = Ephy.DropdownMenu.create(this.#userElement, 'ephy-user-choices-container');
+        const currentUsername = this.#userElement ? this.#userElement.value : (this.#formAuth.username || '');
+        const matchingUsers = this.#users.filter(user =>
+            showAll || !this.#userElement || user.startsWith(this.#userElement.value));
 
-        this.#selected = null;
-        for (const user of this.#users) {
-            if (!showAll && !user.startsWith(this.#userElement.value))
-                continue;
+        if (!matchingUsers.length)
+            return;
 
-            const link = document.createElement('a');
-            innerDiv.appendChild(link);
-
-            if (user === this.#userElement.value)
-                this.#selected = link;
-
-            link.textContent = user;
-
-            link.addEventListener('mousedown', event => {
-                this.#userElement.value = user;
-                this.#selected = link;
-                this.#removeMenu();
-                this.#usernameSelected();
-            }, true);
-        }
-
-        document.body.appendChild(mainDiv);
-
-        if (!this.#selected)
-            this.#passwordElement.value = '';
-    }
-
-    #removeMenu()
-    {
-        const menu = document.getElementById('ephy-user-choices-container');
-        if (menu)
-            menu.parentNode.removeChild(menu);
-    }
-
-    #usernameSelected()
-    {
-        this.#formAuth.username = this.#userElement.value;
-        this.#passwordElement.value = '';
-        this.#manager.preFill(this.#formAuth);
+        Ephy._activeUserMenu = this;
+        Ephy.passwordManager.showMenu(this.#formAuth.origin, matchingUsers, currentUsername, anchorElement.getBoundingClientRect());
     }
 };
 
@@ -936,6 +644,40 @@ Ephy.PasswordManager = class PasswordManager
         });
     }
 
+    showMenu(origin, users, selected, rect)
+    {
+        if (Ephy.isSandboxedWebContent())
+            return;
+
+        window.webkit.messageHandlers.passwordManagerShowMenu.postMessage({
+            origin,
+            users,
+            selected: selected || '',
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+            height: rect.height,
+            pageID: this.#pageID,
+            frameID: this.#frameID
+        });
+    }
+
+    showGenerate(origin, rect)
+    {
+        if (Ephy.isSandboxedWebContent())
+            return;
+
+        window.webkit.messageHandlers.passwordManagerShowGenerate.postMessage({
+            origin,
+            x: rect.left,
+            y: rect.top,
+            width: rect.width,
+            height: rect.height,
+            pageID: this.#pageID,
+            frameID: this.#frameID
+        });
+    }
+
     // Called by ephy-web-process-extension.c
     onQueryUsernamesResponse(users, id)
     {
@@ -1101,19 +843,19 @@ Ephy.FormManager = class FormManager
 
         Ephy.log('Hooking and pre-filling a form');
 
-        if (formAuth.usernameNode) {
-            Ephy.passwordManager.queryUsernames(formAuth.origin).then(users => {
-                if (users.length > 1) {
-                    Ephy.log('More than one saved username, hooking menu for choosing which one to select');
-                    this.#preFillUserMenu = new Ephy.PreFillUserMenu(this, formAuth, users);
-                } else if (users.length === 1) {
+        Ephy.passwordManager.queryUsernames(formAuth.origin).then(users => {
+            if (this.#preFillUserMenu) {
+                this.#preFillUserMenu.destroy();
+                this.#preFillUserMenu = null;
+            }
+
+            if (users && users.length > 0) {
+                if (users.length === 1 && !formAuth.username)
                     formAuth.username = users[0];
-                }
-                this.preFill(formAuth);
-            });
-        } else {
+                this.#preFillUserMenu = new Ephy.PreFillUserMenu(this, formAuth, users);
+            }
             this.preFill(formAuth);
-        }
+        });
     }
 
     preFill(formAuth)

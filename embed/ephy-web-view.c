@@ -585,6 +585,34 @@ ephy_web_view_autofill (EphyWebView            *view,
                                         view->cancellable, NULL, NULL);
 }
 
+void
+ephy_web_view_select_password_user (EphyWebView *view,
+                                    guint64      frame_id,
+                                    const char  *username)
+{
+  g_assert (EPHY_IS_WEB_VIEW (view));
+  g_assert (username);
+
+  webkit_web_view_send_message_to_page (WEBKIT_WEB_VIEW (view),
+                                        webkit_user_message_new ("PasswordManager.SelectUser",
+                                                                 g_variant_new ("(ts)", frame_id, username)),
+                                        view->cancellable, NULL, NULL);
+}
+
+void
+ephy_web_view_fill_generated_password (EphyWebView *view,
+                                       guint64      frame_id,
+                                       const char  *password)
+{
+  g_assert (EPHY_IS_WEB_VIEW (view));
+  g_assert (password);
+
+  webkit_web_view_send_message_to_page (WEBKIT_WEB_VIEW (view),
+                                        webkit_user_message_new ("PasswordManager.FillGeneratedPassword",
+                                                                 g_variant_new ("(ts)", frame_id, password)),
+                                        view->cancellable, NULL, NULL);
+}
+
 static void
 password_form_focused_cb (EphyEmbedShell *shell,
                           guint64         page_id,

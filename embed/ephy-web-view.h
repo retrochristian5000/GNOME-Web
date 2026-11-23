@@ -189,6 +189,14 @@ void ephy_web_view_autofill                                       (EphyWebView  
                                                                    const char                *selector,
                                                                    EphyAutofillFillChoice     fill_choice);
 
+void ephy_web_view_select_password_user                           (EphyWebView               *view,
+                                                                   guint64                    frame_id,
+                                                                   const char                *username);
+
+void ephy_web_view_fill_generated_password                        (EphyWebView               *view,
+                                                                   guint64                    frame_id,
+                                                                   const char                *password);
+
 gboolean ephy_web_view_autofill_popup_enabled                     (EphyWebView               *web_view);
 
 void ephy_web_view_autofill_disable_popup                         (EphyWebView               *web_view);

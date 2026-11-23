@@ -13,6 +13,7 @@ embed/ephy-embed-utils.c
 embed/ephy-embed-utils.h
 embed/ephy-encodings.c
 embed/ephy-find-toolbar.c
+embed/ephy-password-popover.c
 embed/ephy-reader-handler.c
 embed/ephy-search-entry.c
 embed/ephy-view-source-handler.c
