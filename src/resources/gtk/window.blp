@@ -32,7 +32,9 @@ template $EphyWindow: Adw.ApplicationWindow {
   height-request: 200;
   notify::fullscreened => $notify_fullscreen_cb();
 
-  Adw.Breakpoint {
+  /* While vertical tabs are on, ephy-window.c raises this condition to
+   * 682sp, like Nautilus: the tab sidebar needs its own room. */
+  Adw.Breakpoint narrow_breakpoint {
     condition ("max-width: 600px")
 
     setters {
@@ -53,35 +55,66 @@ template $EphyWindow: Adw.ApplicationWindow {
       notify::open => $notify_overview_open_cb() swapped;
       create-tab => $create_tab_cb() swapped;
 
-      child: $EphyFullscreenBox fullscreen_box {
-        [top]
-        Adw.Bin header_bin_top {
-          child: $EphyHeaderBar header_bar {};
-        }
+      child: Adw.OverlaySplitView tab_split_view {
+        show-sidebar: false;
+        enable-show-gesture: false;
+        enable-hide-gesture: false;
+        sidebar-width-fraction: 0.2;
 
-        [top]
-        Adw.TabBar tab_bar {}
+        sidebar: Adw.ToolbarView {
+          [top]
+          Adw.HeaderBar {
+            show-title: false;
 
-        Adw.ToastOverlay toast_overlay {
-          child: $EphyTabView tab_view {
-            EventControllerScroll { // Hides action bar during scrolling
-              propagation-phase: capture;
-              flags: vertical;
-              scroll => $scroll_cb() swapped;
+            [end]
+            Button {
+              icon-name: "view-grid-symbolic";
+              action-name: "win.tabs-view";
+              tooltip-text: _("View Open Tabs");
+
+              styles [
+                "toolbar-button",
+              ]
             }
+          }
+
+          content: $EphyTabSidebar tab_sidebar {
+            create-tab => $create_tab_cb() swapped;
           };
-        }
+        };
 
-        [bottom]
-        Adw.Bin header_bin_bottom {}
+        content: $EphyFullscreenBox fullscreen_box {
+          [top]
+          Adw.Bin header_bin_top {
+            child: $EphyHeaderBar header_bar {};
+          }
 
-        [bottom]
-        Revealer action_bar_revealer {
-          visible: false;
-          reveal-child: false;
+          [top]
+          Adw.Bin tab_bar_bin {
+            child: Adw.TabBar tab_bar {};
+          }
 
-          child: $EphyActionBar action_bar {};
-        }
+          Adw.ToastOverlay toast_overlay {
+            child: $EphyTabView tab_view {
+              EventControllerScroll { // Hides action bar during scrolling
+                propagation-phase: capture;
+                flags: vertical;
+                scroll => $scroll_cb() swapped;
+              }
+            };
+          }
+
+          [bottom]
+          Adw.Bin header_bin_bottom {}
+
+          [bottom]
+          Revealer action_bar_revealer {
+            visible: false;
+            reveal-child: false;
+
+            child: $EphyActionBar action_bar {};
+          }
+        };
       };
     };
 

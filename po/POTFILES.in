@@ -61,6 +61,7 @@ src/ephy-session.c
 src/ephy-shell.c
 src/ephy-site-menu-button.c
 src/ephy-suggestion-model.c
+src/ephy-tab-sidebar.c
 src/ephy-tab-view.c
 src/ephy-window.c
 src/preferences/autofill-view.c

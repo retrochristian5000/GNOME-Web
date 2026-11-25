@@ -39,6 +39,7 @@ static const char *REFRESH_BUTTON_TOOLTIP = N_("Reload");
 struct _EphyActionBarStart {
   GtkBox parent_instance;
 
+  gboolean tab_sidebar_shown;
   GtkWidget *navigation_box;
   GtkWidget *navigation_back;
   GtkWidget *navigation_forward;
@@ -463,7 +464,17 @@ update_new_tab_button_visibility (EphyActionBarStart *action_bar_start)
 
   gtk_widget_set_visible (action_bar_start->new_tab_button,
                           (ephy_embed_shell_get_mode (embed_shell) != EPHY_EMBED_SHELL_MODE_APPLICATION) &&
-                          !is_desktop_pantheon ());
+                          !is_desktop_pantheon () &&
+                          !action_bar_start->tab_sidebar_shown);
+}
+
+/* The tab sidebar has its own new tab button. */
+void
+ephy_action_bar_start_set_tab_sidebar_shown (EphyActionBarStart *action_bar_start,
+                                             gboolean            shown)
+{
+  action_bar_start->tab_sidebar_shown = shown;
+  update_new_tab_button_visibility (action_bar_start);
 }
 
 static void

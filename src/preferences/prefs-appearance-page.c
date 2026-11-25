@@ -45,6 +45,9 @@ struct _PrefsAppearancePage {
   GtkWidget *reader_mode_font_style;
   GtkWidget *reader_mode_color_scheme;
 
+  /* Tabs */
+  GtkWidget *vertical_tabs_row;
+
   /* Style */
   GtkWidget *css_row;
   GtkWidget *css_edit_button;
@@ -322,6 +325,15 @@ setup_appearance_page (PrefsAppearancePage *appearance_page)
                                 NULL, NULL);
 
   /* ======================================================================== */
+  /* ========================== Tabs ======================================== */
+  /* ======================================================================== */
+  g_settings_bind (EPHY_SETTINGS_UI,
+                   EPHY_PREFS_UI_VERTICAL_TABS,
+                   appearance_page->vertical_tabs_row,
+                   "active",
+                   G_SETTINGS_BIND_DEFAULT);
+
+  /* ======================================================================== */
   /* ========================== Style ======================================= */
   /* ======================================================================== */
   g_settings_bind (web_settings,
@@ -400,6 +412,9 @@ prefs_appearance_page_class_init (PrefsAppearancePageClass *klass)
   gtk_widget_class_bind_template_child (widget_class, PrefsAppearancePage, reader_mode_box);
   gtk_widget_class_bind_template_child (widget_class, PrefsAppearancePage, reader_mode_font_style);
   gtk_widget_class_bind_template_child (widget_class, PrefsAppearancePage, reader_mode_color_scheme);
+
+  /* Tabs */
+  gtk_widget_class_bind_template_child (widget_class, PrefsAppearancePage, vertical_tabs_row);
 
   /* Style */
   gtk_widget_class_bind_template_child (widget_class, PrefsAppearancePage, css_row);

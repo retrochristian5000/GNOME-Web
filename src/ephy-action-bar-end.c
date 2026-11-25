@@ -29,6 +29,7 @@
 #include "ephy-downloads-paintable.h"
 #include "ephy-downloads-popover.h"
 #include "ephy-embed-container.h"
+#include "ephy-settings.h"
 #include "ephy-shell.h"
 #include "ephy-web-extension-manager.h"
 #include "ephy-window.h"
@@ -57,6 +58,8 @@ struct _EphyActionBarEnd {
   GdkPaintable *downloads_paintable;
 
   guint downloads_button_attention_timeout_id;
+
+  gboolean tab_sidebar_shown;
 };
 
 G_DEFINE_FINAL_TYPE (EphyActionBarEnd, ephy_action_bar_end, GTK_TYPE_BOX)
@@ -295,6 +298,14 @@ ephy_action_bar_end_class_init (EphyActionBarEndClass *klass)
 }
 
 static void
+update_overview_button_visibility (EphyActionBarEnd *action_bar_end)
+{
+  gtk_widget_set_visible (action_bar_end->overview_button,
+                          ephy_embed_shell_get_mode (ephy_embed_shell_get_default ()) != EPHY_EMBED_SHELL_MODE_APPLICATION &&
+                          !action_bar_end->tab_sidebar_shown);
+}
+
+static void
 ephy_action_bar_end_init (EphyActionBarEnd *action_bar_end)
 {
   GObject *object = G_OBJECT (action_bar_end);
@@ -327,8 +338,7 @@ ephy_action_bar_end_init (EphyActionBarEnd *action_bar_end)
                               "view-grid");
   }
 
-  gtk_widget_set_visible (action_bar_end->overview_button,
-                          ephy_embed_shell_get_mode (embed_shell) != EPHY_EMBED_SHELL_MODE_APPLICATION);
+  update_overview_button_visibility (action_bar_end);
 
   g_signal_connect_object (downloads_manager, "download-added",
                            G_CALLBACK (download_added_cb),
@@ -363,6 +373,15 @@ ephy_action_bar_end_set_show_bookmarks_button (EphyActionBarEnd *action_bar_end,
                                                gboolean          show)
 {
   gtk_widget_set_visible (action_bar_end->bookmarks_button, show);
+}
+
+/* The tab sidebar has its own overview button. */
+void
+ephy_action_bar_end_set_tab_sidebar_shown (EphyActionBarEnd *action_bar_end,
+                                           gboolean          shown)
+{
+  action_bar_end->tab_sidebar_shown = shown;
+  update_overview_button_visibility (action_bar_end);
 }
 
 void

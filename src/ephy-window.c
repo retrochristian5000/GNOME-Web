@@ -65,6 +65,7 @@
 #include "ephy-settings.h"
 #include "ephy-shell.h"
 #include "ephy-site-menu-button.h"
+#include "ephy-tab-sidebar.h"
 #include "ephy-title-box.h"
 #include "ephy-title-widget.h"
 #include "ephy-type-builtins.h"
@@ -142,6 +143,7 @@ const struct {
   { "win.location-search", {"<Primary>K", NULL} },
   { "win.copy-location", { "<shift><Primary>C", NULL } },
   { "win.tabs-view", { "<shift><Primary>O", NULL } },
+  { "win.toggle-tab-sidebar", { "F9", NULL } },
 
   /* Toggle actions */
   { "win.browse-with-caret", { "F7", NULL } },
@@ -170,6 +172,14 @@ struct _EphyWindow {
   GHashTable *action_labels;
   EphyTabView *tab_view;
   AdwTabBar *tab_bar;
+  GtkWidget *tab_split_view;
+  GtkWidget *tab_sidebar;
+  AdwBreakpoint *narrow_breakpoint;
+  GtkWidget *tab_bar_bin;
+  gboolean tab_sidebar_shown;
+  gboolean tab_sidebar_collapsed;
+  guint tab_sidebar_sync_tick_id;
+  gboolean tab_sidebar_revealed_at_edge;
   GtkWidget *action_bar_revealer;
   GtkWidget *action_bar;
   GtkWidget *overlay_split_view;
@@ -533,10 +543,111 @@ G_DEFINE_FINAL_TYPE_WITH_CODE (EphyWindow, ephy_window, ADW_TYPE_APPLICATION_WIN
                                G_IMPLEMENT_INTERFACE (EPHY_TYPE_EMBED_CONTAINER,
                                                       ephy_window_embed_container_iface_init))
 
+static gboolean
+vertical_tabs_enabled (void)
+{
+  return g_settings_get_boolean (EPHY_SETTINGS_UI, EPHY_PREFS_UI_VERTICAL_TABS) &&
+         ephy_embed_shell_get_mode (ephy_embed_shell_get_default ()) != EPHY_EMBED_SHELL_MODE_APPLICATION;
+}
+
+/* Like the tab bar (see visibility_policy_changed_cb in ephy-tab-view.c), the
+ * tab sidebar hides with a single tab. The "never" policy contradicts vertical
+ * tabs, so it acts as "more-than-one". */
+static gboolean
+tab_sidebar_needed (EphyWindow *window)
+{
+  AdwTabView *view = ephy_tab_view_get_tab_view (window->tab_view);
+
+  if (is_desktop_pantheon () ||
+      g_settings_get_enum (EPHY_SETTINGS_UI, EPHY_PREFS_UI_TABS_BAR_VISIBILITY_POLICY) == EPHY_PREFS_UI_TABS_BAR_VISIBILITY_POLICY_ALWAYS)
+    return TRUE;
+
+  return adw_tab_view_get_n_pages (view) > 1 ||
+         adw_tab_view_get_n_pinned_pages (view) > 0 ||
+         adw_tab_view_get_is_transferring_page (view);
+}
+
+static void sync_chromes_visibility (EphyWindow *window);
+
+/* Applies the deferred show-sidebar state at the first frame where the
+ * sidebar has been laid out. */
+static gboolean
+tab_sidebar_sync_tick_cb (GtkWidget     *widget,
+                          GdkFrameClock *frame_clock,
+                          gpointer       user_data)
+{
+  EphyWindow *window = EPHY_WINDOW (user_data);
+
+  if (adw_swipeable_get_distance (ADW_SWIPEABLE (widget)) == 0)
+    return G_SOURCE_CONTINUE;
+
+  window->tab_sidebar_sync_tick_id = 0;
+  sync_chromes_visibility (window);
+
+  return G_SOURCE_REMOVE;
+}
+
+/* Like the tab bar, the tab sidebar is not used in narrow windows, where the
+ * bottom bar has a tab overview button. In fullscreen it collapses and
+ * overlays the content. */
+static void
+sync_tab_sidebar (EphyWindow *window,
+                  gboolean    show_tabs,
+                  gboolean    is_wide,
+                  gboolean    fullscreen)
+{
+  AdwOverlaySplitView *split_view = ADW_OVERLAY_SPLIT_VIEW (window->tab_split_view);
+  EphyHeaderBar *header_bar = EPHY_HEADER_BAR (window->header_bar);
+  gboolean vertical;
+  gboolean shown;
+  gboolean collapsed = fullscreen;
+
+  /* Not constructed yet. */
+  if (!window->tab_bar_bin)
+    return;
+
+  vertical = vertical_tabs_enabled ();
+  shown = vertical && show_tabs && is_wide && tab_sidebar_needed (window);
+
+  gtk_widget_set_visible (window->tab_bar_bin, !vertical);
+  /* Only track the pages while vertical tabs are on, and keep them while the
+   * sidebar hides, which narrow windows and fullscreen do often. */
+  ephy_tab_sidebar_set_view (EPHY_TAB_SIDEBAR (window->tab_sidebar),
+                             vertical ? ephy_tab_view_get_tab_view (window->tab_view) : NULL);
+
+  /* Collapsing hides the sidebar and expanding shows it, without animation as
+   * in libadwaita; an unused sidebar is pinned, so that it stays hidden. */
+  adw_overlay_split_view_set_pin_sidebar (split_view, !shown);
+  adw_overlay_split_view_set_collapsed (split_view, collapsed);
+  adw_overlay_split_view_set_enable_show_gesture (split_view, shown && collapsed);
+  adw_overlay_split_view_set_enable_hide_gesture (split_view, shown && collapsed);
+
+  if (shown != window->tab_sidebar_shown || collapsed != window->tab_sidebar_collapsed){
+    /* Defer until the sidebar has a width. */
+    if (gtk_widget_get_mapped (GTK_WIDGET (split_view)) &&
+        adw_swipeable_get_distance (ADW_SWIPEABLE (split_view)) == 0) {
+      if (!window->tab_sidebar_sync_tick_id)
+        window->tab_sidebar_sync_tick_id =
+          gtk_widget_add_tick_callback (GTK_WIDGET (split_view),
+                                        tab_sidebar_sync_tick_cb,
+                                        window, NULL);
+      return;
+    }
+
+    adw_overlay_split_view_set_show_sidebar (split_view, shown && !collapsed);
+  }
+
+  window->tab_sidebar_shown = shown;
+  window->tab_sidebar_collapsed = collapsed;
+
+  ephy_action_bar_start_set_tab_sidebar_shown (ephy_header_bar_get_action_bar_start (header_bar), shown);
+  ephy_action_bar_end_set_tab_sidebar_shown (ephy_header_bar_get_action_bar_end (header_bar), shown);
+}
+
 static void
 sync_chromes_visibility (EphyWindow *window)
 {
-  gboolean show_tabsbar, is_wide, fullscreen, fullscreen_lockdown;
+  gboolean show_tabsbar, is_wide, fullscreen, fullscreen_lockdown, show_tabs;
 
   if (window->closing)
     return;
@@ -551,13 +662,15 @@ sync_chromes_visibility (EphyWindow *window)
   gtk_widget_set_visible (window->header_bar,
                           !fullscreen_lockdown &&
                           (!fullscreen || window->show_fullscreen_header_bar));
-  gtk_widget_set_visible (GTK_WIDGET (window->tab_bar),
-                          !fullscreen_lockdown &&
-                          (show_tabsbar && is_wide && !(window->is_popup) &&
-                           (!fullscreen || window->show_fullscreen_header_bar)));
+  show_tabs = !fullscreen_lockdown && show_tabsbar && !(window->is_popup) &&
+              (!fullscreen || window->show_fullscreen_header_bar);
+
+  gtk_widget_set_visible (GTK_WIDGET (window->tab_bar), show_tabs && is_wide);
   gtk_widget_set_visible (window->action_bar,
                           !fullscreen_lockdown && !is_wide &&
                           (!fullscreen || window->show_fullscreen_header_bar));
+
+  sync_tab_sidebar (window, show_tabs, is_wide, fullscreen);
 }
 
 static void
@@ -957,6 +1070,7 @@ static const GActionEntry window_entries [] = {
   { "copy-location", window_cmd_copy_location },
   { "home", window_cmd_go_home },
   { "tabs-view", window_cmd_go_tabs_view },
+  { "toggle-tab-sidebar", window_cmd_toggle_tab_sidebar },
   { "switch-new-tab", window_cmd_switch_new_tab },
 
   /* Toggle actions */
@@ -3885,6 +3999,9 @@ ephy_window_dispose (GObject *object)
     g_clear_object (&window->search_engine_model);
 
     g_clear_handle_id (&window->modified_forms_timeout_id, g_source_remove);
+    if (window->tab_sidebar_sync_tick_id)
+      gtk_widget_remove_tick_callback (window->tab_split_view,
+                                       window->tab_sidebar_sync_tick_id);
 
     g_clear_weak_pointer (&window->previous_embed);
     g_clear_pointer (&window->action_labels, g_hash_table_unref);
@@ -4448,6 +4565,72 @@ create_tab_cb (EphyWindow *window)
   return adw_tab_view_get_selected_page (view);
 }
 
+/* In fullscreen, like the header bar with the top edge (see
+ * EphyFullscreenBox), the collapsed tab sidebar shows when the pointer reaches
+ * the start edge, and hides once it leaves the sidebar. Shown otherwise (F9,
+ * sidebar button), it stays. libadwaita moves the focus to the sidebar and
+ * makes the content unfocusable, so unlike EphyFullscreenBox the focus
+ * cannot tell. */
+#define SHOW_TAB_SIDEBAR_DISTANCE_PX 5
+
+static void
+tab_sidebar_edge_motion_cb (EphyWindow *window,
+                            double      x,
+                            double      y)
+{
+  AdwOverlaySplitView *split_view = ADW_OVERLAY_SPLIT_VIEW (window->tab_split_view);
+  GtkWidget *sidebar = adw_overlay_split_view_get_sidebar (split_view);
+  double distance = x;
+
+  if (!adw_overlay_split_view_get_show_sidebar (split_view))
+    window->tab_sidebar_revealed_at_edge = FALSE;
+
+  if (!window->is_fullscreen || !window->tab_sidebar_shown || !window->tab_sidebar_collapsed)
+    return;
+
+  if (gtk_widget_get_direction (GTK_WIDGET (window)) == GTK_TEXT_DIR_RTL)
+    distance = gtk_widget_get_width (window->tab_split_view) - x;
+
+  if (distance <= SHOW_TAB_SIDEBAR_DISTANCE_PX &&
+      !adw_overlay_split_view_get_show_sidebar (split_view)) {
+    adw_overlay_split_view_set_show_sidebar (split_view, TRUE);
+    window->tab_sidebar_revealed_at_edge = TRUE;
+  } else if (window->tab_sidebar_revealed_at_edge && distance > gtk_widget_get_width (sidebar)) {
+    adw_overlay_split_view_set_show_sidebar (split_view, FALSE);
+    window->tab_sidebar_revealed_at_edge = FALSE;
+  }
+}
+
+/* Vertical tabs need room for the sidebar: while they are on, narrow windows
+ * start below the width Nautilus collapses its own sidebar at. */
+static void
+sync_narrow_breakpoint_condition (EphyWindow *window)
+{
+  gboolean vertical = vertical_tabs_enabled ();
+  AdwBreakpointCondition *condition =
+    adw_breakpoint_condition_new_length (ADW_BREAKPOINT_CONDITION_MAX_WIDTH,
+                                         vertical ? 682 : 600,
+                                         vertical ? ADW_LENGTH_UNIT_SP : ADW_LENGTH_UNIT_PX);
+
+  adw_breakpoint_set_condition (window->narrow_breakpoint, condition);
+  adw_breakpoint_condition_free (condition);
+}
+
+static void
+tab_sidebar_changed_cb (EphyWindow *window)
+{
+  sync_narrow_breakpoint_condition (window);
+  sync_chromes_visibility (window);
+}
+
+/* Once a tab is picked, get the overlaid sidebar out of the way. */
+static void
+tab_sidebar_selected_page_cb (EphyWindow *window)
+{
+  if (window->tab_sidebar_collapsed)
+    adw_overlay_split_view_set_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (window->tab_split_view), FALSE);
+}
+
 static void
 insert_action_group (const char   *prefix,
                      GActionGroup *group,
@@ -4506,6 +4689,7 @@ ephy_window_constructed (GObject *object)
   EphyWindowChrome chrome = EPHY_WINDOW_CHROME_DEFAULT;
   GApplication *app;
   EphyDownloadsManager *downloads_manager;
+  GtkEventController *edge_controller;
 
   G_OBJECT_CLASS (ephy_window_parent_class)->constructed (object);
 
@@ -4593,6 +4777,31 @@ ephy_window_constructed (GObject *object)
     gtk_widget_add_css_class (GTK_WIDGET (window), "automation-mode");
 
   window->location_controller = setup_location_controller (window, EPHY_HEADER_BAR (window->header_bar));
+  g_signal_connect_object (ephy_tab_view_get_tab_view (window->tab_view), "notify::selected-page",
+                           G_CALLBACK (tab_sidebar_selected_page_cb), window,
+                           G_CONNECT_SWAPPED);
+
+  edge_controller = gtk_event_controller_motion_new ();
+  gtk_event_controller_set_propagation_phase (edge_controller, GTK_PHASE_CAPTURE);
+  g_signal_connect_object (edge_controller, "motion", G_CALLBACK (tab_sidebar_edge_motion_cb), window, G_CONNECT_SWAPPED);
+  gtk_widget_add_controller (window->tab_split_view, edge_controller);
+
+  sync_chromes_visibility (window);
+  g_signal_connect_object (EPHY_SETTINGS_UI, "changed::" EPHY_PREFS_UI_VERTICAL_TABS,
+                           G_CALLBACK (tab_sidebar_changed_cb), window,
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (EPHY_SETTINGS_UI, "changed::" EPHY_PREFS_UI_TABS_BAR_VISIBILITY_POLICY,
+                           G_CALLBACK (tab_sidebar_changed_cb), window,
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (ephy_tab_view_get_tab_view (window->tab_view), "notify::n-pages",
+                           G_CALLBACK (tab_sidebar_changed_cb), window,
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (ephy_tab_view_get_tab_view (window->tab_view), "notify::n-pinned-pages",
+                           G_CALLBACK (tab_sidebar_changed_cb), window,
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (ephy_tab_view_get_tab_view (window->tab_view), "notify::is-transferring-page",
+                           G_CALLBACK (tab_sidebar_changed_cb), window,
+                           G_CONNECT_SWAPPED);
 
   /* other notifiers */
   action = g_action_map_lookup_action (G_ACTION_MAP (shell),
@@ -4695,6 +4904,8 @@ ephy_window_class_init (EphyWindowClass *klass)
 
   window_class->close_request = ephy_window_close_request;
 
+  g_type_ensure (EPHY_TYPE_TAB_SIDEBAR);
+
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/epiphany/gtk/window.ui");
 
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, overlay_split_view);
@@ -4708,6 +4919,10 @@ ephy_window_class_init (EphyWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, tab_view);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, action_bar_revealer);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, action_bar);
+  gtk_widget_class_bind_template_child (widget_class, EphyWindow, tab_bar_bin);
+  gtk_widget_class_bind_template_child (widget_class, EphyWindow, tab_split_view);
+  gtk_widget_class_bind_template_child (widget_class, EphyWindow, narrow_breakpoint);
+  gtk_widget_class_bind_template_child (widget_class, EphyWindow, tab_sidebar);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, bookmarks_dialog);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, bubble_shortcut_controller);
 
@@ -4750,6 +4965,8 @@ ephy_window_init (EphyWindow *window)
   LOG ("EphyWindow initializing %p", window);
 
   gtk_widget_init_template (GTK_WIDGET (window));
+
+  sync_narrow_breakpoint_condition (window);
 
   window->uid = window_uid++;
   window->adaptive_mode = EPHY_ADAPTIVE_MODE_NORMAL;
@@ -5400,6 +5617,20 @@ gboolean
 ephy_window_get_show_sidebar (EphyWindow *self)
 {
   return adw_overlay_split_view_get_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->overlay_split_view));
+}
+
+/* The tab sidebar is a navigation sidebar, always shown when there is room
+ * for it; collapsed, it becomes transient, and F9 toggles it like the HIG
+ * utility panes. */
+void
+ephy_window_toggle_tab_sidebar (EphyWindow *self)
+{
+  AdwOverlaySplitView *split_view = ADW_OVERLAY_SPLIT_VIEW (self->tab_split_view);
+
+  if (self->tab_sidebar_shown && self->tab_sidebar_collapsed) {
+    adw_overlay_split_view_set_show_sidebar (split_view, !adw_overlay_split_view_get_show_sidebar (split_view));
+    self->tab_sidebar_revealed_at_edge = FALSE;
+  }
 }
 
 void

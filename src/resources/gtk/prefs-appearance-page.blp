@@ -64,6 +64,15 @@ template $PrefsAppearancePage: Adw.PreferencesPage {
   }
 
   Adw.PreferencesGroup {
+    title: _("Tabs");
+
+    Adw.SwitchRow vertical_tabs_row {
+      title: _("Vertical Tabs");
+      subtitle: _("List tabs in a sidebar");
+    }
+  }
+
+  Adw.PreferencesGroup {
     title: _("Style");
 
     Adw.SwitchRow css_row {

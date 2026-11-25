@@ -272,3 +272,24 @@ dnd > .boxed-list {
   margin-left: 6px;
   margin-right: 6px;
 }
+
+/* Tab sidebar: the drop target feedback is the tabs moving, like in the
+ * tab bar; the dragged tab leaves an empty slot. */
+tabsidebar tabsidebarscroller:drop(active),
+tabsidebar row:drop(active),
+tabsidebar flowboxchild:drop(active) {
+  box-shadow: none;
+}
+
+tabsidebar .dragged {
+  opacity: 0;
+}
+
+dnd .tab-sidebar-drag-icon {
+  padding: 0 8px;
+  border-radius: 6px;
+  outline: 1px solid var(--border-color);
+  outline-offset: -1px;
+  background-color: var(--sidebar-bg-color);
+  color: var(--sidebar-fg-color);
+}
