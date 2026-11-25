@@ -67,30 +67,20 @@ template $EphyActionBar: Adw.Bin {
       action-name: "win.tabs-view";
     }
 
-    Button bookmarks_button {
-      tooltip-text: _("Bookmarks");
-      action-name: "win.bookmarks";
-      icon-name: "ephy-library-symbolic";
+    $EphyPageMenuButton {}
 
-      styles [
-        "toolbar-button",
-      ]
-    }
+    Button sidebar_button {
+      tooltip-text: _("Sidebar");
+      action-name: "win.sidebar";
 
-    $EphyPageMenuButton menu_button {}
-
-    MenuButton downloads_button {
-      tooltip-text: _("Downloads");
-      receives-default: true;
-
-      styles [
-        "image-button",
-        "toolbar-button",
-      ]
-
-      Image downloads_icon {
+      child: Image sidebar_icon {
+        icon-name: "view-sidebar-end-symbolic";
         valign: center;
-      }
+      };
+
+      styles [
+        "toolbar-button",
+      ]
     }
   }
 }

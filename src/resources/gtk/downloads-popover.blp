@@ -1,37 +1,117 @@
 using Gtk 4.0;
+using Adw 1;
 
-template $EphyDownloadsPopover: Popover {
-  child: Box {
-    orientation: vertical;
+template $EphyDownloadsPopover: Adw.Bin {
+  child: Adw.ToolbarView {
+    [top]
+    Adw.HeaderBar {
+      show-title: false;
 
-    ScrolledWindow {
-      hscrollbar-policy: never;
-      min-content-height: 330; // downloads box min size
+      [start]
+      ToggleButton search_button {
+        icon-name: "edit-find-symbolic";
+        active: bind search_bar.search-mode-enabled bidirectional;
+        visible: bind $is_not_empty_page(downloads_stack.visible-child-name);
+        tooltip-text: _("Search");
+      }
 
-      child: ListBox downloads_box {
-        activate-on-single-click: true;
-        selection-mode: none;
-        row-activated => $download_box_row_activated_cb() swapped;
+      [start]
+      Button clear_button {
+        icon-name: "edit-clear-all-symbolic";
+        tooltip-text: _("Clear Finished");
+        sensitive: false;
+        visible: bind $is_not_empty_page(downloads_stack.visible-child-name);
+        clicked => $clear_button_clicked_cb() swapped;
+      }
 
-        styles [
-          "background",
-        ]
-      };
+      [end]
+      Button close_button {
+        icon-name: "view-sidebar-end-symbolic";
+        tooltip-text: _("Close");
+        action-name: "win.sidebar";
+      }
     }
 
-    Button clear_button {
-      label: _("_Clear All");
-      use-underline: true;
-      halign: end;
-      margin-start: 6;
-      margin-end: 6;
-      margin-top: 6;
-      margin-bottom: 6;
-      clicked => $clear_button_clicked_cb() swapped;
+    [top]
+    SearchBar search_bar {
+      search-mode-enabled: false;
+      key-capture-widget: template;
+
+      Adw.Clamp {
+        hexpand: true;
+
+        SearchEntry search_entry {
+          placeholder-text: _("Search downloads");
+          search-changed => $on_search_entry_changed();
+
+          EventControllerKey {
+            key-pressed => $on_search_entry_key_pressed();
+          }
+        }
+      }
     }
+
+    content: Stack downloads_stack {
+      StackPage {
+        name: "main-page";
+
+        child: ScrolledWindow {
+          hscrollbar-policy: never;
+          propagate-natural-height: true;
+
+          styles [
+            "undershoot-top",
+          ]
+
+          child: Adw.PreferencesPage {
+            Adw.PreferencesGroup downloads_group {
+              visible: false;
+
+              ListBox downloads_box {
+                selection-mode: none;
+
+                styles [
+                  "boxed-list",
+                ]
+              }
+            }
+
+            Adw.PreferencesGroup finished_group {
+              visible: false;
+
+              ListBox finished_box {
+                selection-mode: none;
+
+                styles [
+                  "boxed-list",
+                ]
+              }
+            }
+
+            Adw.PreferencesGroup failed_group {
+              visible: false;
+
+              ListBox failed_box {
+                selection-mode: none;
+
+                styles [
+                  "boxed-list",
+                ]
+              }
+            }
+          };
+        };
+      }
+
+      StackPage {
+        name: "empty-page";
+
+        child: Adw.StatusPage {
+          title: _("No Downloads");
+          description: _("Active downloads will be listed here");
+          icon-name: "folder-download-symbolic";
+        };
+      }
+    };
   };
-
-  styles [
-    "menu",
-  ]
 }

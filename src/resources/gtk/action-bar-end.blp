@@ -3,24 +3,6 @@ using Gtk 4.0;
 template $EphyActionBarEnd: Box {
   spacing: 6;
 
-  Revealer downloads_revealer {
-    transition-type: crossfade;
-
-    MenuButton downloads_button {
-      tooltip-text: _("Downloads");
-      receives-default: true;
-
-      styles [
-        "image-button",
-        "toolbar-button",
-      ]
-
-      Image downloads_icon {
-        valign: center;
-      }
-    }
-  }
-
   MenuButton browser_actions_button {
     tooltip-text: _("Extensions");
     visible: false;
@@ -97,15 +79,19 @@ template $EphyActionBarEnd: Box {
     ]
   }
 
-  Button bookmarks_button {
-    tooltip-text: _("Bookmarks");
-    clicked => $on_bookmarks_button();
-    icon-name: "ephy-library-symbolic";
+  $EphyPageMenuButton page_menu_button {}
+
+  Button sidebar_button {
+    tooltip-text: _("Sidebar");
+    action-name: "win.sidebar";
+
+    child: Image sidebar_icon {
+      icon-name: "view-sidebar-end-symbolic";
+      valign: center;
+    };
 
     styles [
       "toolbar-button",
     ]
   }
-
-  $EphyPageMenuButton page_menu_button {}
 }

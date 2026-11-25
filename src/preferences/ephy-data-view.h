@@ -57,4 +57,12 @@ void       ephy_data_view_set_clear_button (EphyDataView *self,
 
 const gchar *ephy_data_view_get_search_text (EphyDataView *self);
 
+void     ephy_data_view_set_show_title         (EphyDataView *self,
+                                                gboolean      show_title);
+
+void      ephy_data_view_set_reveal_bottom_bar (EphyDataView *self,
+                                                gboolean      reveal);
+
+void      ephy_data_view_reset_search          (EphyDataView *self);
+
 G_END_DECLS

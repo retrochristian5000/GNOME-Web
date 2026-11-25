@@ -64,6 +64,7 @@
 #include "ephy-session.h"
 #include "ephy-settings.h"
 #include "ephy-shell.h"
+#include "ephy-sidebar.h"
 #include "ephy-site-menu-button.h"
 #include "ephy-title-box.h"
 #include "ephy-title-widget.h"
@@ -129,6 +130,8 @@ const struct {
   { "win.find-prev", { "<shift><Primary>G", NULL } },
   { "win.find-next", { "<Primary>G", NULL } },
   { "win.bookmark-page", { "AddFavorite", "<Primary>D", NULL } },
+  { "win.add-search-engine", { NULL } },
+  { "win.sidebar", { NULL } },
   { "win.bookmarks", { "<alt><Primary>D", NULL } },
   { "win.show-downloads", { "<shift><Primary>Y", NULL } },
   { "win.page-source", { "<Primary>U", NULL } },
@@ -174,7 +177,7 @@ struct _EphyWindow {
   GtkWidget *action_bar;
   GtkWidget *overlay_split_view;
   GtkWidget *bottom_sheet;
-  GtkWidget *bookmarks_dialog;
+  GtkWidget *sidebar;
   EphyEmbed *active_embed;
   EphyEmbed *previous_embed;
   EphyWindowChrome chrome;
@@ -663,6 +666,8 @@ ephy_window_set_adaptive_mode (EphyWindow       *window,
     gtk_widget_remove_css_class (GTK_WIDGET (window), "narrow");
     gtk_widget_set_visible (window->action_bar_revealer, FALSE);
   }
+
+  adw_overlay_split_view_set_collapsed (ADW_OVERLAY_SPLIT_VIEW (window->overlay_split_view), TRUE);
 }
 
 static void
@@ -939,8 +944,9 @@ static const GActionEntry window_entries [] = {
   { "find-prev", window_cmd_find_prev },
   { "find-next", window_cmd_find_next },
   { "bookmark-page", window_cmd_bookmark_page },
-  { "bookmarks", window_cmd_bookmarks },
+  { "bookmarks", window_cmd_show_bookmarks },
   { "add-search-engine", window_cmd_add_search_engine, "as" },
+  { "sidebar", window_cmd_toggle_sidebar },
   { "show-downloads", window_cmd_show_downloads },
   { "encoding", window_cmd_encoding },
   { "privacy-report", window_cmd_privacy_report },
@@ -4708,7 +4714,7 @@ ephy_window_class_init (EphyWindowClass *klass)
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, tab_view);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, action_bar_revealer);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, action_bar);
-  gtk_widget_class_bind_template_child (widget_class, EphyWindow, bookmarks_dialog);
+  gtk_widget_class_bind_template_child (widget_class, EphyWindow, sidebar);
   gtk_widget_class_bind_template_child (widget_class, EphyWindow, bubble_shortcut_controller);
 
   gtk_widget_class_bind_template_callback (widget_class, notify_fullscreen_cb);
@@ -5402,25 +5408,40 @@ ephy_window_get_show_sidebar (EphyWindow *self)
   return adw_overlay_split_view_get_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->overlay_split_view));
 }
 
+GtkWidget *
+ephy_window_get_sidebar (EphyWindow *window)
+{
+  g_assert (EPHY_IS_WINDOW (window));
+
+  return window->sidebar;
+}
+
 void
-ephy_window_toggle_bookmarks (EphyWindow *self)
+ephy_window_toggle_sidebar (EphyWindow *self)
 {
   gboolean state;
 
   state = !adw_overlay_split_view_get_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->overlay_split_view));
-  adw_overlay_split_view_set_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->overlay_split_view), state);
 
-  if (state) {
-    ephy_bookmarks_dialog_set_is_editing (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog), FALSE);
-    ephy_bookmarks_dialog_focus (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog));
-  } else {
+  if (!state) {
     EphyWebView *web_view = ephy_embed_get_web_view (self->active_embed);
-
-    ephy_bookmarks_dialog_clear_search (EPHY_BOOKMARKS_DIALOG (self->bookmarks_dialog));
 
     /* Set the navigation flags so the buttons don't become sensitive when exiting. */
     _ephy_window_set_navigation_flags (self, ephy_web_view_get_navigation_flags (web_view));
+
+    ephy_sidebar_reset_state (EPHY_SIDEBAR (self->sidebar));
+  } else {
+    EphyShell *shell = ephy_shell_get_default ();
+    GList *windows = gtk_application_get_windows (GTK_APPLICATION (shell));
+
+    /* The sidebar will be opened, close it in any other windows. */
+    /* Only one sidebar can be opened at once, because of the history view. */
+    for (GList *l = windows; l && l->data; l = l->next)
+      if (ephy_window_get_show_sidebar (l->data))
+        ephy_window_toggle_sidebar (l->data);
   }
+
+  adw_overlay_split_view_set_show_sidebar (ADW_OVERLAY_SPLIT_VIEW (self->overlay_split_view), state);
 }
 
 void

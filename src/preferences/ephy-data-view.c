@@ -552,3 +552,30 @@ ephy_data_view_get_search_text (EphyDataView *self)
 
   return priv->search_text;
 }
+
+void
+ephy_data_view_set_show_title (EphyDataView *self,
+                               gboolean      show_title)
+{
+  EphyDataViewPrivate *priv = ephy_data_view_get_instance_private (self);
+
+  adw_header_bar_set_show_title (ADW_HEADER_BAR (priv->top_bar), show_title);
+}
+
+void
+ephy_data_view_set_reveal_bottom_bar (EphyDataView *self,
+                                      gboolean      reveal)
+{
+  EphyDataViewPrivate *priv = ephy_data_view_get_instance_private (self);
+
+  adw_toolbar_view_set_reveal_bottom_bars (ADW_TOOLBAR_VIEW (priv->box), reveal);
+}
+
+void
+ephy_data_view_reset_search (EphyDataView *self)
+{
+  EphyDataViewPrivate *priv = ephy_data_view_get_instance_private (self);
+
+  gtk_search_bar_set_search_mode (GTK_SEARCH_BAR (priv->search_bar), FALSE);
+  gtk_editable_delete_text (GTK_EDITABLE (priv->search_entry), 0, -1);
+}

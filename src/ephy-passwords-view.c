@@ -22,16 +22,15 @@
 
 #include "ephy-shell.h"
 
-#include "preferences/ephy-data-view.h"
-
 struct _EphyPasswordsView {
-  AdwDialog parent_instance;
+  EphyDataView parent_instance;
 
   GtkWidget *remember_switch;
 
   EphyPasswordManager *manager;
-  EphyDataView *data_view;
   GList *records;
+  GtkWidget *edit_button;
+  GtkWidget *remove_button;
   GtkWidget *toast_overlay;
   GtkWidget *listbox;
   GtkWidget *confirmation_dialog;
@@ -39,7 +38,7 @@ struct _EphyPasswordsView {
   GCancellable *cancellable;
 };
 
-G_DEFINE_FINAL_TYPE (EphyPasswordsView, ephy_passwords_view, ADW_TYPE_DIALOG)
+G_DEFINE_FINAL_TYPE (EphyPasswordsView, ephy_passwords_view, EPHY_TYPE_DATA_VIEW)
 
 static void populate_model (EphyPasswordsView *passwords_view);
 static GtkWidget *confirmation_dialog_construct (EphyPasswordsView *self);
@@ -47,14 +46,14 @@ static GtkWidget *confirmation_dialog_construct (EphyPasswordsView *self);
 static void
 on_search_text_changed (EphyPasswordsView *passwords_view)
 {
-  ephy_data_view_set_has_search_results (EPHY_DATA_VIEW (passwords_view->data_view), FALSE);
+  ephy_data_view_set_has_search_results (EPHY_DATA_VIEW (passwords_view), FALSE);
   gtk_list_box_invalidate_filter (GTK_LIST_BOX (passwords_view->listbox));
 }
 
 static gboolean
 on_clear_button_clicked (EphyPasswordsView *self)
 {
-  if (!ephy_data_view_get_has_data (EPHY_DATA_VIEW (self->data_view)))
+  if (!ephy_data_view_get_has_data (EPHY_DATA_VIEW (self)))
     return GDK_EVENT_PROPAGATE;
 
   if (!self->confirmation_dialog) {
@@ -86,29 +85,63 @@ forget_operation_finished_cb (GObject      *source_object,
   }
 
   /* Repopulate the list */
-  ephy_data_view_set_has_data (EPHY_DATA_VIEW (passwords_view->data_view), FALSE);
+  ephy_data_view_set_has_data (EPHY_DATA_VIEW (passwords_view), FALSE);
   populate_model (passwords_view);
 }
 
 static void
-forget_clicked (GtkWidget *button,
-                gpointer   user_data)
+on_edit_button_toggled (GtkToggleButton *button,
+                        gpointer         user_data)
 {
-  EphyPasswordRecord *record = EPHY_PASSWORD_RECORD (user_data);
-  EphyPasswordsView *passwords_view = g_object_get_data (G_OBJECT (record), "passwords-view");
+  EphyPasswordsView *self = EPHY_PASSWORDS_VIEW (user_data);
+  gboolean active = gtk_toggle_button_get_active (button);
+  GtkListBoxRow *row;
+  int i = 0;
 
-  ephy_password_manager_forget (passwords_view->manager,
-                                ephy_password_record_get_id (record),
-                                passwords_view->cancellable,
-                                forget_operation_finished_cb,
-                                passwords_view);
+  while ((row = gtk_list_box_get_row_at_index (GTK_LIST_BOX (self->listbox), i++))) {
+    GtkWidget *check_button = GTK_WIDGET (g_object_get_data (G_OBJECT (row), "check-button"));
+
+    /* Uncheck all rows when toggling selection mode */
+    gtk_check_button_set_active (GTK_CHECK_BUTTON (check_button), FALSE);
+
+    /* Show/Hide row selection widgets (check_button) */
+    gtk_widget_set_visible (check_button, active);
+  }
+
+  gtk_widget_set_sensitive (self->remove_button, FALSE);
+  ephy_data_view_set_reveal_bottom_bar (EPHY_DATA_VIEW (self), active);
+}
+
+static void
+on_remove_button_clicked (GtkWidget *button,
+                          gpointer   user_data)
+{
+  EphyPasswordsView *passwords_view = EPHY_PASSWORDS_VIEW (user_data);
+  GtkListBoxRow *row;
+  int i = 0;
+
+  while ((row = gtk_list_box_get_row_at_index (GTK_LIST_BOX (passwords_view->listbox), i++))) {
+    GtkCheckButton *check_button =
+      GTK_CHECK_BUTTON (g_object_get_data (G_OBJECT (row), "check-button"));
+
+    if (gtk_check_button_get_active (check_button)) {
+      EphyPasswordRecord *record = g_object_get_data (G_OBJECT (row), "record");
+
+      ephy_password_manager_forget (passwords_view->manager,
+                                    ephy_password_record_get_id (record),
+                                    passwords_view->cancellable,
+                                    forget_operation_finished_cb,
+                                    passwords_view);
+    }
+  }
 
   /* Clear internal state */
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (passwords_view->edit_button), FALSE);
   gtk_list_box_remove_all (GTK_LIST_BOX (passwords_view->listbox));
   g_clear_list (&passwords_view->records, g_object_unref);
 
   /* Present loading spinner while waiting for the async forget op to finish */
-  ephy_data_view_set_is_loading (EPHY_DATA_VIEW (passwords_view->data_view), TRUE);
+  ephy_data_view_set_is_loading (EPHY_DATA_VIEW (passwords_view), TRUE);
 }
 
 
@@ -120,7 +153,7 @@ copy_password_clicked (GtkWidget *button,
 
   if (password) {
     EphyPasswordsView *self = EPHY_PASSWORDS_VIEW (gtk_widget_get_ancestor (button, EPHY_TYPE_PASSWORDS_VIEW));
-    AdwToastOverlay *toast_overlay = ephy_data_view_get_toast_overlay (self->data_view);
+    AdwToastOverlay *toast_overlay = ephy_data_view_get_toast_overlay (EPHY_DATA_VIEW (self));
     AdwToast *toast = adw_toast_new (_("Password copied"));
 
     gdk_clipboard_set_text (gtk_widget_get_clipboard (GTK_WIDGET (button)), password);
@@ -146,10 +179,13 @@ ephy_passwords_view_class_init (EphyPasswordsViewClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class,
                                                "/org/gnome/epiphany/gtk/passwords-view.ui");
 
+  gtk_widget_class_bind_template_child (widget_class, EphyPasswordsView, edit_button);
   gtk_widget_class_bind_template_child (widget_class, EphyPasswordsView, listbox);
-  gtk_widget_class_bind_template_child (widget_class, EphyPasswordsView, data_view);
+  gtk_widget_class_bind_template_child (widget_class, EphyPasswordsView, remove_button);
 
   gtk_widget_class_bind_template_callback (widget_class, on_search_text_changed);
+  gtk_widget_class_bind_template_callback (widget_class, on_edit_button_toggled);
+  gtk_widget_class_bind_template_callback (widget_class, on_remove_button_clicked);
   gtk_widget_class_bind_template_callback (widget_class, on_clear_button_clicked);
 
   gtk_widget_class_add_binding (widget_class, GDK_KEY_Delete, GDK_SHIFT_MASK,
@@ -163,7 +199,7 @@ confirmation_dialog_response_cb (EphyPasswordsView *self)
   ephy_password_manager_forget_all (self->manager);
 
   gtk_list_box_remove_all (GTK_LIST_BOX (self->listbox));
-  ephy_data_view_set_has_data (EPHY_DATA_VIEW (self->data_view), FALSE);
+  ephy_data_view_set_has_data (EPHY_DATA_VIEW (self), FALSE);
 
   g_clear_list (&self->records, g_object_unref);
 }
@@ -229,13 +265,45 @@ on_password_apply (AdwEntryRow *row,
                               FALSE);
 }
 
+static GList *
+get_checked_rows (EphyPasswordsView *self)
+{
+  GList *checked_rows = NULL;
+  GtkListBoxRow *row;
+  int i = 0;
+
+  while ((row = gtk_list_box_get_row_at_index (GTK_LIST_BOX (self->listbox), i++))) {
+    GtkCheckButton *check_button =
+      GTK_CHECK_BUTTON (g_object_get_data (G_OBJECT (row), "check-button"));
+
+    if (gtk_check_button_get_active (check_button))
+      checked_rows = g_list_prepend (checked_rows, row);
+  }
+
+  return checked_rows;
+}
+
+static void
+row_check_button_toggled (EphyPasswordsView *self)
+{
+  g_autoptr (GList) checked_rows = get_checked_rows (self);
+
+  gtk_widget_set_sensitive (self->remove_button, g_list_length (checked_rows));
+}
+
 static void
 populate_model_cb (GList    **records,
                    gpointer   user_data)
 {
   EphyPasswordsView *passwords_view = EPHY_PASSWORDS_VIEW (user_data);
 
-  ephy_data_view_set_is_loading (EPHY_DATA_VIEW (passwords_view->data_view), FALSE);
+  /* We don't need to update the model if the amount of passwords hasn't changed. */
+  if (g_list_length (*records) == g_list_length (passwords_view->records))
+    return;
+
+  ephy_data_view_set_is_loading (EPHY_DATA_VIEW (passwords_view), TRUE);
+  gtk_list_box_remove_all (GTK_LIST_BOX (passwords_view->listbox));
+  ephy_data_view_set_has_data (EPHY_DATA_VIEW (passwords_view), FALSE);
 
   for (GList *l = *records; l && l->data; l = l->next) {
     EphyPasswordRecord *record = EPHY_PASSWORD_RECORD (l->data);
@@ -254,9 +322,19 @@ populate_model_cb (GList    **records,
       adw_expander_row_set_subtitle (ADW_EXPANDER_ROW (row), username);
     adw_expander_row_set_show_enable_switch (ADW_EXPANDER_ROW (row), FALSE);
 
+    button = gtk_check_button_new ();
+    g_object_set_data (G_OBJECT (row), "check-button", button);
+    gtk_widget_set_valign (button, GTK_ALIGN_CENTER);
+    gtk_widget_set_tooltip_text (button, _("Remove the selected passwords"));
+    gtk_widget_add_css_class (button, "selection-mode");
+    gtk_widget_set_visible (button, FALSE);
+    g_signal_connect_object (button, "toggled", G_CALLBACK (row_check_button_toggled),
+                             passwords_view, G_CONNECT_SWAPPED);
+    adw_expander_row_add_prefix (ADW_EXPANDER_ROW (row), button);
+
     button = gtk_button_new_from_icon_name ("edit-copy-symbolic");
     gtk_widget_set_valign (button, GTK_ALIGN_CENTER);
-    gtk_widget_set_tooltip_text (button, _("Copy password"));
+    gtk_widget_set_tooltip_text (button, _("Copy Password"));
     gtk_widget_add_css_class (button, "flat");
     adw_expander_row_add_suffix (ADW_EXPANDER_ROW (row), button);
     g_signal_connect (button, "clicked", G_CALLBACK (copy_password_clicked), (void *)(ephy_password_record_get_password (record)));
@@ -274,7 +352,7 @@ populate_model_cb (GList    **records,
 
     button = gtk_button_new_from_icon_name ("edit-copy-symbolic");
     g_signal_connect (button, "clicked", G_CALLBACK (copy_username_clicked), (void *)(ephy_password_record_get_username (record)));
-    gtk_widget_set_tooltip_text (button, _("Copy username"));
+    gtk_widget_set_tooltip_text (button, _("Copy Username"));
     gtk_widget_set_valign (button, GTK_ALIGN_CENTER);
     gtk_widget_add_css_class (button, "flat");
     adw_entry_row_add_suffix (ADW_ENTRY_ROW (sub_row), button);
@@ -290,25 +368,19 @@ populate_model_cb (GList    **records,
     if (text)
       gtk_editable_set_text (GTK_EDITABLE (sub_row), text);
 
-    /* Remove button */
-    sub_row = adw_action_row_new ();
-    adw_expander_row_add_row (ADW_EXPANDER_ROW (row), sub_row);
-
-    button = gtk_button_new_with_label (_("Remove Password"));
-    gtk_widget_set_valign (button, GTK_ALIGN_CENTER);
-    gtk_widget_add_css_class (button, "destructive-action");
-    g_signal_connect (button, "clicked", G_CALLBACK (forget_clicked), record);
-    adw_action_row_add_suffix (ADW_ACTION_ROW (sub_row), button);
-
-    g_object_set_data (G_OBJECT (record), "passwords-view", passwords_view);
+    g_object_set_data (G_OBJECT (row), "record", record);
 
     gtk_list_box_append (GTK_LIST_BOX (passwords_view->listbox), row);
   }
 
   if (g_list_length (*records))
-    ephy_data_view_set_has_data (EPHY_DATA_VIEW (passwords_view->data_view), TRUE);
+    ephy_data_view_set_has_data (EPHY_DATA_VIEW (passwords_view), TRUE);
 
-  g_assert (!passwords_view->records);
+  gtk_widget_set_sensitive (passwords_view->edit_button,
+                            ephy_data_view_get_has_data (EPHY_DATA_VIEW (passwords_view)));
+  ephy_data_view_set_is_loading (EPHY_DATA_VIEW (passwords_view), FALSE);
+
+  g_list_free_full (passwords_view->records, g_object_unref);
   passwords_view->records = g_list_copy_deep (*records, (GCopyFunc)g_object_ref, NULL);
 }
 
@@ -316,9 +388,7 @@ static void
 populate_model (EphyPasswordsView *self)
 {
   g_assert (EPHY_IS_PASSWORDS_VIEW (self));
-  g_assert (!ephy_data_view_get_has_data (EPHY_DATA_VIEW (self->data_view)));
 
-  ephy_data_view_set_is_loading (EPHY_DATA_VIEW (self->data_view), TRUE);
   /* Ask for all password records. */
   ephy_password_manager_query (self->manager,
                                NULL, NULL, NULL, NULL, NULL, NULL,
@@ -335,7 +405,7 @@ password_filter (GtkListBoxRow *row,
   const char *username;
   const char *origin;
   gboolean visible = FALSE;
-  const char *search_text = ephy_data_view_get_search_text (EPHY_DATA_VIEW (passwords_view->data_view));
+  const char *search_text = ephy_data_view_get_search_text (EPHY_DATA_VIEW (passwords_view));
 
   if (!search_text)
     return TRUE;
@@ -349,7 +419,7 @@ password_filter (GtkListBoxRow *row,
     visible = TRUE;
 
   if (visible)
-    ephy_data_view_set_has_search_results (EPHY_DATA_VIEW (passwords_view->data_view), TRUE);
+    ephy_data_view_set_has_search_results (EPHY_DATA_VIEW (passwords_view), TRUE);
 
   return visible;
 }
@@ -361,12 +431,19 @@ ephy_passwords_view_init (EphyPasswordsView *self)
 
   gtk_widget_init_template (GTK_WIDGET (self));
 
+  ephy_data_view_set_show_title (EPHY_DATA_VIEW (self), FALSE);
+  ephy_data_view_set_reveal_bottom_bar (EPHY_DATA_VIEW (self), FALSE);
+
   self->cancellable = g_cancellable_new ();
 
   gtk_list_box_set_filter_func (GTK_LIST_BOX (self->listbox), password_filter, self, NULL);
-  gtk_list_box_set_selection_mode (GTK_LIST_BOX (self->listbox), GTK_SELECTION_NONE);
 
   populate_model (self);
+
+  g_signal_connect_swapped (self->manager, "synchronizable-modified",
+                            G_CALLBACK (populate_model), self);
+  g_signal_connect_swapped (self->manager, "synchronizable-deleted",
+                            G_CALLBACK (populate_model), self);
 }
 
 void
@@ -375,4 +452,19 @@ ephy_passwords_show (EphyWindow *window)
   GtkWidget *dialog = g_object_new (EPHY_TYPE_PASSWORDS_VIEW, NULL);
 
   adw_dialog_present (ADW_DIALOG (dialog), GTK_WIDGET (window));
+}
+
+void
+ephy_passwords_view_reset_state (EphyPasswordsView *self)
+{
+  GtkListBoxRow *row;
+  int i = 0;
+
+  g_assert (EPHY_IS_PASSWORDS_VIEW (self));
+
+  gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (self->edit_button), FALSE);
+  ephy_data_view_reset_search (EPHY_DATA_VIEW (self));
+
+  while ((row = gtk_list_box_get_row_at_index (GTK_LIST_BOX (self->listbox), i++)))
+    adw_expander_row_set_expanded (ADW_EXPANDER_ROW (row), FALSE);
 }

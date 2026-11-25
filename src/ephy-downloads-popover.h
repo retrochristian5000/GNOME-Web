@@ -20,7 +20,7 @@
 
 #pragma once
 
-#include <gtk/gtk.h>
+#include <adwaita.h>
 
 #include "ephy-download.h"
 
@@ -28,8 +28,6 @@ G_BEGIN_DECLS
 
 #define EPHY_TYPE_DOWNLOADS_POPOVER (ephy_downloads_popover_get_type())
 
-G_DECLARE_FINAL_TYPE (EphyDownloadsPopover, ephy_downloads_popover, EPHY, DOWNLOADS_POPOVER, GtkPopover)
-
-GtkWidget *ephy_downloads_popover_new      (void);
+G_DECLARE_FINAL_TYPE (EphyDownloadsPopover, ephy_downloads_popover, EPHY, DOWNLOADS_POPOVER, AdwBin)
 
 G_END_DECLS

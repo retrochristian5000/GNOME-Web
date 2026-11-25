@@ -31,18 +31,16 @@
 #include "ephy-uri-helpers.h"
 
 struct _EphyDownloadWidget {
-  AdwBin parent_instance;
+  AdwActionRow parent_instance;
 
   EphyDownload *download;
 
-  GtkWidget *filename;
-  GtkWidget *status;
   GtkWidget *icon;
   GtkWidget *progress;
   GtkWidget *action_button;
 };
 
-G_DEFINE_FINAL_TYPE (EphyDownloadWidget, ephy_download_widget, ADW_TYPE_BIN)
+G_DEFINE_FINAL_TYPE (EphyDownloadWidget, ephy_download_widget, ADW_TYPE_ACTION_ROW)
 
 typedef enum {
   PROP_DOWNLOAD = 1,
@@ -141,7 +139,7 @@ update_download_destination (EphyDownloadWidget *widget)
   if (!dest)
     return;
 
-  gtk_label_set_label (GTK_LABEL (widget->filename), dest);
+  adw_preferences_row_set_title (ADW_PREFERENCES_ROW (widget), dest);
 }
 
 static void
@@ -151,7 +149,7 @@ update_status_label (EphyDownloadWidget *widget,
   g_autofree char *markup = NULL;
 
   markup = g_markup_printf_escaped ("<span size='small'>%s</span>", download_label);
-  gtk_label_set_markup (GTK_LABEL (widget->status), markup);
+  adw_action_row_set_subtitle (ADW_ACTION_ROW (widget), download_label);
 }
 
 static void
@@ -185,7 +183,7 @@ download_progress_cb (WebKitDownload     *download,
     time = get_remaining_time (content_length, received_length,
                                webkit_download_get_elapsed_time (download));
     remaining = duration_to_string ((guint)time);
-    download_label = g_strdup_printf ("%s / %s — %s", received, total, remaining);
+    download_label = g_strdup_printf ("%s / %s\n%s", received, total, remaining);
 
     gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (widget->progress),
                                    progress);
@@ -194,9 +192,8 @@ download_progress_cb (WebKitDownload     *download,
     gtk_progress_bar_pulse (GTK_PROGRESS_BAR (widget->progress));
   }
 
-  if (download_label) {
+  if (download_label)
     update_status_label (widget, download_label);
-  }
 }
 
 static void
@@ -205,16 +202,17 @@ download_finished_cb (EphyDownload       *download,
 {
   gtk_widget_set_visible (widget->progress, FALSE);
   update_status_label (widget, _("Finished"));
-  gtk_button_set_icon_name (GTK_BUTTON (widget->action_button),
-                            "folder-open-symbolic");
+  gtk_button_set_icon_name (GTK_BUTTON (widget->action_button), "folder-open-symbolic");
+  gtk_widget_set_tooltip_text (widget->action_button, _("Open"));
 }
 
 static void
 download_moved_cb (EphyDownload       *download,
                    EphyDownloadWidget *widget)
 {
+  gtk_widget_set_visible (widget->progress, FALSE);
   update_status_label (widget, _("Moved or deleted"));
-  gtk_widget_set_sensitive (widget->action_button, FALSE);
+  gtk_widget_set_visible (widget->action_button, FALSE);
 }
 
 static void
@@ -222,16 +220,21 @@ download_failed_cb (EphyDownload       *download,
                     GError             *error,
                     EphyDownloadWidget *widget)
 {
-  g_autofree char *error_msg = NULL;
+  WebKitDownload *wk_download = ephy_download_get_webkit_download (download);
 
   g_signal_handlers_disconnect_by_func (download, download_progress_cb, widget);
+  g_signal_handlers_disconnect_matched (wk_download, G_SIGNAL_MATCH_DATA, 0, 0,
+                                        NULL, NULL, widget);
+  g_signal_handlers_disconnect_matched (download, G_SIGNAL_MATCH_DATA, 0, 0,
+                                        NULL, NULL, widget);
 
   gtk_widget_set_visible (widget->progress, FALSE);
+  gtk_widget_set_visible (widget->action_button, FALSE);
 
-  error_msg = g_strdup_printf (_("Error downloading: %s"), error->message);
-  update_status_label (widget, error_msg);
-  gtk_button_set_icon_name (GTK_BUTTON (widget->action_button),
-                            "list-remove-symbolic");
+  update_status_label (widget, error->message);
+
+  if (!g_error_matches (error, WEBKIT_DOWNLOAD_ERROR, WEBKIT_DOWNLOAD_ERROR_CANCELLED_BY_USER))
+    gtk_widget_add_css_class (GTK_WIDGET (widget), "error");
 }
 
 static void
@@ -246,13 +249,6 @@ static void
 widget_action_button_clicked_cb (EphyDownloadWidget *widget)
 {
   if (ephy_download_is_active (widget->download)) {
-    WebKitDownload *download;
-
-    download = ephy_download_get_webkit_download (widget->download);
-    g_signal_handlers_disconnect_matched (download, G_SIGNAL_MATCH_DATA, 0, 0,
-                                          NULL, NULL, widget);
-    g_signal_handlers_disconnect_matched (widget->download, G_SIGNAL_MATCH_DATA, 0, 0,
-                                          NULL, NULL, widget);
     update_status_label (widget, _("Cancelling…"));
     gtk_widget_set_sensitive (widget->action_button, FALSE);
 
@@ -284,6 +280,7 @@ download_drag_prepare (EphyDownloadWidget *widget)
 
   return gdk_content_provider_new_typed (G_TYPE_FILE, g_file_new_for_path (dest));
 }
+
 
 static void
 ephy_download_widget_get_property (GObject    *object,
@@ -347,6 +344,7 @@ ephy_download_widget_constructed (GObject *object)
   WebKitDownload *download;
   const char *action_icon_name = NULL;
   g_autoptr (GError) error = NULL;
+  const char *tooltip_text = NULL;
 
   G_OBJECT_CLASS (ephy_download_widget_parent_class)->constructed (object);
 
@@ -354,24 +352,27 @@ ephy_download_widget_constructed (GObject *object)
   update_download_destination (widget);
 
   if (ephy_download_failed (widget->download, &error)) {
-    g_autofree char *error_msg = NULL;
-
-    error_msg = g_strdup_printf (_("Error downloading: %s"), error->message);
-    update_status_label (widget, error_msg);
+    update_status_label (widget, error->message);
+    gtk_widget_add_css_class (GTK_WIDGET (widget), "error");
   } else if (ephy_download_succeeded (widget->download)) {
     update_status_label (widget, _("Finished"));
   } else {
     update_status_label (widget, _("Starting…"));
   }
 
-  if (ephy_download_succeeded (widget->download))
+  if (ephy_download_succeeded (widget->download)) {
     action_icon_name = "folder-open-symbolic";
-  else if (ephy_download_failed (widget->download, NULL))
-    action_icon_name = "list-remove-symbolic";
-  else
-    action_icon_name = "window-close-symbolic";
+    tooltip_text = _("Open");
+  } else {
+    action_icon_name = "edit-delete-symbolic";
+    tooltip_text = _("Cancel");
+  }
 
   gtk_button_set_icon_name (GTK_BUTTON (widget->action_button), action_icon_name);
+  gtk_widget_set_tooltip_text (widget->action_button, tooltip_text);
+
+  if (ephy_download_failed (widget->download, NULL))
+    gtk_widget_set_visible (widget->action_button, FALSE);
 
   download = ephy_download_get_webkit_download (widget->download);
   g_signal_connect (download, "notify::estimated-progress",
@@ -408,9 +409,7 @@ ephy_download_widget_class_init (EphyDownloadWidgetClass *klass)
   gtk_widget_class_set_template_from_resource (widget_class, "/org/gnome/epiphany/gtk/download-widget.ui");
 
   gtk_widget_class_bind_template_child (widget_class, EphyDownloadWidget, icon);
-  gtk_widget_class_bind_template_child (widget_class, EphyDownloadWidget, filename);
   gtk_widget_class_bind_template_child (widget_class, EphyDownloadWidget, progress);
-  gtk_widget_class_bind_template_child (widget_class, EphyDownloadWidget, status);
   gtk_widget_class_bind_template_child (widget_class, EphyDownloadWidget, action_button);
 
   gtk_widget_class_bind_template_callback (widget_class, widget_action_button_clicked_cb);

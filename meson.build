@@ -72,7 +72,7 @@ conf.set_quoted('VERSION', '@VCS_TAG@')
 
 glib_requirement = '>= 2.84.0'
 gtk_requirement = '>= 4.21.0'
-libadwaita_requirement = '>= 1.8.alpha'
+libadwaita_requirement = '>= 1.11.alpha'
 nettle_requirement = '>= 3.4'
 webkitgtk_requirement = '>= 2.53.90'
 
@@ -80,8 +80,8 @@ conf.set('GLIB_VERSION_MIN_REQUIRED', 'GLIB_VERSION_2_84')
 conf.set('GLIB_VERSION_MAX_ALLOWED', 'GLIB_VERSION_2_84')
 conf.set('GDK_VERSION_MIN_REQUIRED', 'GDK_VERSION_4_22')
 conf.set('GDK_VERSION_MAX_ALLOWED', 'GDK_VERSION_4_22')
-conf.set('ADW_VERSION_MIN_REQUIRED', 'ADW_VERSION_1_8')
-conf.set('ADW_VERSION_MAX_ALLOWED', 'ADW_VERSION_1_8')
+conf.set('ADW_VERSION_MIN_REQUIRED', 'ADW_VERSION_1_11')
+conf.set('ADW_VERSION_MAX_ALLOWED', 'ADW_VERSION_1_11')
 
 cairo_dep = dependency('cairo', version: '>= 1.2')
 gck_dep = dependency('gck-2')

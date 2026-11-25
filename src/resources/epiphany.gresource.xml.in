@@ -39,6 +39,8 @@
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/search-engine-listbox.ui">resources/gtk/search-engine-listbox.ui</file>
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/search-engine-row.ui">resources/gtk/search-engine-row.ui</file>
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/security-dialog.ui">resources/gtk/security-dialog.ui</file>
+    <file preprocess="xml-stripblanks" compressed="true" alias="gtk/shortcuts-dialog.ui">resources/gtk/shortcuts-dialog.ui</file>
+    <file preprocess="xml-stripblanks" compressed="true" alias="gtk/sidebar.ui">resources/gtk/sidebar.ui</file>
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/site-menu-button.ui">resources/gtk/site-menu-button.ui</file>
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/synced-tabs-dialog.ui">resources/gtk/synced-tabs-dialog.ui</file>
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/tab-view.ui">resources/gtk/tab-view.ui</file>
@@ -90,6 +92,7 @@
     <file compressed="true" alias="scalable/status/ephy-globe-alt2-symbolic.svg">ephy-globe-alt2-symbolic.svg</file>
     <file compressed="true" alias="scalable/status/ephy-heart-filled-symbolic.svg">ephy-heart-filled-symbolic.svg</file>
     <file compressed="true" alias="scalable/status/ephy-loupe-plus-symbolic.svg">ephy-loupe-plus-symbolic.svg</file>
+    <file compressed="true" alias="scalable/status/ephy-history-symbolic.svg">ephy-history-symbolic.svg</file>
     <file compressed="true" alias="scalable/status/ephy-site-menu-button-symbolic.gpa">ephy-site-menu-button-symbolic.gpa</file>
   </gresource>
   <gresource prefix="/org/gnome/Epiphany">
