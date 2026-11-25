@@ -37,12 +37,17 @@ struct _EphyPasswordsView {
   GtkWidget *confirmation_dialog;
 
   GCancellable *cancellable;
+
+  guint refresh_source_id;
+  char *expanded_record_id;
 };
 
 G_DEFINE_FINAL_TYPE (EphyPasswordsView, ephy_passwords_view, ADW_TYPE_DIALOG)
 
 static void populate_model (EphyPasswordsView *passwords_view);
 static GtkWidget *confirmation_dialog_construct (EphyPasswordsView *self);
+static void schedule_passwords_refresh (EphyPasswordsView *self);
+static void ephy_passwords_view_dispose (GObject *object);
 
 static void
 on_search_text_changed (EphyPasswordsView *passwords_view)
@@ -80,8 +85,10 @@ forget_operation_finished_cb (GObject      *source_object,
   g_autoptr (GError) error = NULL;
 
   if (!ephy_password_manager_forget_finish (EPHY_PASSWORD_MANAGER (source_object), result, &error)) {
-    if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+    if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
       g_warning ("Failed to forget password: %s", error->message);
+      ephy_data_view_set_is_loading (EPHY_DATA_VIEW (passwords_view->data_view), FALSE);
+    }
     return;
   }
 
@@ -141,7 +148,10 @@ copy_username_clicked (GtkWidget *button,
 static void
 ephy_passwords_view_class_init (EphyPasswordsViewClass *klass)
 {
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
+
+  object_class->dispose = ephy_passwords_view_dispose;
 
   gtk_widget_class_set_template_from_resource (widget_class,
                                                "/org/gnome/epiphany/gtk/passwords-view.ui");
@@ -155,6 +165,20 @@ ephy_passwords_view_class_init (EphyPasswordsViewClass *klass)
   gtk_widget_class_add_binding (widget_class, GDK_KEY_Delete, GDK_SHIFT_MASK,
                                 (GtkShortcutFunc)on_clear_button_clicked,
                                 NULL);
+}
+
+static void
+ephy_passwords_view_dispose (GObject *object)
+{
+  EphyPasswordsView *self = EPHY_PASSWORDS_VIEW (object);
+
+  g_cancellable_cancel (self->cancellable);
+  g_clear_object (&self->cancellable);
+  g_clear_handle_id (&self->refresh_source_id, g_source_remove);
+  g_clear_pointer (&self->expanded_record_id, g_free);
+  g_clear_list (&self->records, g_object_unref);
+
+  G_OBJECT_CLASS (ephy_passwords_view_parent_class)->dispose (object);
 }
 
 static void
@@ -237,6 +261,9 @@ populate_model_cb (GList    **records,
 
   ephy_data_view_set_is_loading (EPHY_DATA_VIEW (passwords_view->data_view), FALSE);
 
+  gtk_list_box_remove_all (GTK_LIST_BOX (passwords_view->listbox));
+  g_clear_list (&passwords_view->records, g_object_unref);
+
   for (GList *l = *records; l && l->data; l = l->next) {
     EphyPasswordRecord *record = EPHY_PASSWORD_RECORD (l->data);
     GtkWidget *row;
@@ -303,13 +330,20 @@ populate_model_cb (GList    **records,
     g_object_set_data (G_OBJECT (record), "passwords-view", passwords_view);
 
     gtk_list_box_append (GTK_LIST_BOX (passwords_view->listbox), row);
+
+    if (passwords_view->expanded_record_id &&
+        g_strcmp0 (passwords_view->expanded_record_id, ephy_password_record_get_id (record)) == 0)
+      adw_expander_row_set_expanded (ADW_EXPANDER_ROW (row), TRUE);
   }
+
+  g_clear_pointer (&passwords_view->expanded_record_id, g_free);
 
   if (g_list_length (*records))
     ephy_data_view_set_has_data (EPHY_DATA_VIEW (passwords_view->data_view), TRUE);
 
-  g_assert (!passwords_view->records);
   passwords_view->records = g_list_copy_deep (*records, (GCopyFunc)g_object_ref, NULL);
+
+  on_search_text_changed (passwords_view);
 }
 
 static void
@@ -319,11 +353,74 @@ populate_model (EphyPasswordsView *self)
   g_assert (!ephy_data_view_get_has_data (EPHY_DATA_VIEW (self->data_view)));
 
   ephy_data_view_set_is_loading (EPHY_DATA_VIEW (self->data_view), TRUE);
+
   /* Ask for all password records. */
   ephy_password_manager_query (self->manager,
                                NULL, NULL, NULL, NULL, NULL, NULL,
-                               FALSE,
+                               FALSE, self->cancellable,
                                populate_model_cb, self);
+}
+
+static void
+refresh_passwords_cb (EphyPasswordsView *self)
+{
+  GtkWidget *child;
+  GtkRoot *root;
+  GtkWidget *focus;
+
+  self->refresh_source_id = 0;
+
+  /* Rebuilding the list discards text the user is currently typing,
+   * so postpone the refresh while an entry in the list has focus.
+   */
+  root = gtk_widget_get_root (GTK_WIDGET (self));
+  focus = root ? gtk_root_get_focus (root) : NULL;
+  if (focus && gtk_widget_is_ancestor (focus, self->listbox)) {
+    schedule_passwords_refresh (self);
+    return;
+  }
+
+  g_clear_pointer (&self->expanded_record_id, g_free);
+  for (child = gtk_widget_get_first_child (self->listbox); child; child = gtk_widget_get_next_sibling (child)) {
+    if (ADW_IS_EXPANDER_ROW (child) && adw_expander_row_get_expanded (ADW_EXPANDER_ROW (child))) {
+      EphyPasswordRecord *record = g_object_get_data (G_OBJECT (child), "record");
+      self->expanded_record_id = g_strdup (ephy_password_record_get_id (record));
+      break;
+    }
+  }
+
+  ephy_data_view_set_has_data (EPHY_DATA_VIEW (self->data_view), FALSE);
+  populate_model (self);
+}
+
+static void
+schedule_passwords_refresh (EphyPasswordsView *self)
+{
+  /* Importing a CSV file or merging a sync updates one record per signal,
+   * so coalesce bursts into a single refresh.
+   */
+  if (self->refresh_source_id)
+    return;
+
+  self->refresh_source_id = g_timeout_add_once (100, (GSourceOnceFunc)refresh_passwords_cb, self);
+  g_source_set_name_by_id (self->refresh_source_id, "[epiphany] refresh_passwords_cb");
+}
+
+static void
+password_modified_cb (EphyPasswordManager *manager,
+                      EphyPasswordRecord  *record,
+                      gboolean             is_snapshot,
+                      EphyPasswordsView   *self)
+{
+  schedule_passwords_refresh (self);
+}
+
+static void
+password_deleted_cb (EphyPasswordManager *manager,
+                     EphyPasswordRecord  *record,
+                     EphyPasswordsView   *self)
+{
+  schedule_passwords_refresh (self);
 }
 
 static gboolean
@@ -365,6 +462,11 @@ ephy_passwords_view_init (EphyPasswordsView *self)
 
   gtk_list_box_set_filter_func (GTK_LIST_BOX (self->listbox), password_filter, self, NULL);
   gtk_list_box_set_selection_mode (GTK_LIST_BOX (self->listbox), GTK_SELECTION_NONE);
+
+  g_signal_connect_object (self->manager, "synchronizable-modified",
+                           G_CALLBACK (password_modified_cb), self, G_CONNECT_DEFAULT);
+  g_signal_connect_object (self->manager, "synchronizable-deleted",
+                           G_CALLBACK (password_deleted_cb), self, G_CONNECT_DEFAULT);
 
   populate_model (self);
 }

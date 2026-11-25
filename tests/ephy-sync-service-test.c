@@ -539,6 +539,7 @@ test_password_manager_query_without_id (void)
                                "username_input",
                                "password_input",
                                TRUE,
+                               NULL,
                                query_finished_cb,
                                &ctx);
 }

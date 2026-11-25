@@ -117,6 +117,7 @@ typedef struct {
   guint n_matches;
   GHashTable *retry_attributes;
   gboolean retried_without_fields;
+  GCancellable *cancellable;
 } QueryAsyncData;
 
 typedef struct {
@@ -141,14 +142,16 @@ typedef struct {
 } MergePasswordsAsyncData;
 
 static QueryAsyncData *
-query_async_data_new (EphyPasswordManagerQueryCallback callback,
-                      gpointer                         user_data)
+query_async_data_new (EphyPasswordManagerQueryCallback  callback,
+                      gpointer                          user_data,
+                      GCancellable                     *cancellable)
 {
   QueryAsyncData *data;
 
   data = g_new0 (QueryAsyncData, 1);
   data->callback = callback;
   data->user_data = user_data;
+  data->cancellable = cancellable ? g_object_ref (cancellable) : NULL;
 
   return data;
 }
@@ -160,6 +163,7 @@ query_async_data_free (QueryAsyncData *data)
 
   g_list_free_full (data->records, g_object_unref);
   g_clear_pointer (&data->retry_attributes, g_hash_table_unref);
+  g_clear_object (&data->cancellable);
   g_free (data);
 }
 
@@ -407,6 +411,7 @@ ephy_password_manager_init (EphyPasswordManager *self)
   LOG ("Loading usernames into internal cache...");
   self->cache = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
   ephy_password_manager_query (self, NULL, NULL, NULL, NULL, NULL, NULL, FALSE,
+                               NULL,
                                populate_cache_cb, self);
 }
 
@@ -612,6 +617,7 @@ ephy_password_manager_save (EphyPasswordManager *self,
                                  origin, target_origin, username,
                                  username_field, password_field,
                                  TRUE,
+                                 NULL,
                                  update_credentials_cb,
                                  update_credentials_async_data_new (self, new_username, password));
     return;
@@ -703,7 +709,7 @@ out:
   g_object_unref (retrievable);
 
   if (--data->n_matches == 0) {
-    if (data->callback)
+    if (data->callback && !g_cancellable_is_cancelled (data->cancellable))
       data->callback (&data->records, data->user_data);
     query_async_data_free (data);
   }
@@ -718,6 +724,12 @@ secret_password_search_cb (GObject        *source_object,
   GError *error = NULL;
 
   matches = secret_password_search_finish (result, &error);
+  if (g_cancellable_is_cancelled (data->cancellable)) {
+    g_clear_error (&error);
+    g_list_free_full (matches, g_object_unref);
+    query_async_data_free (data);
+    return;
+  }
   if (!matches) {
     if (error) {
       if (should_warn_for_secret_error (error))
@@ -728,7 +740,7 @@ secret_password_search_cb (GObject        *source_object,
       secret_password_searchv (EPHY_FORM_PASSWORD_SCHEMA,
                                data->retry_attributes,
                                SECRET_SEARCH_ALL | SECRET_SEARCH_UNLOCK | SECRET_SEARCH_LOAD_SECRETS,
-                               NULL,
+                               data->cancellable,
                                (GAsyncReadyCallback)secret_password_search_cb,
                                data);
       return;
@@ -747,7 +759,7 @@ secret_password_search_cb (GObject        *source_object,
   for (GList *l = matches; l; l = l->next) {
     SecretRetrievable *retrievable = SECRET_RETRIEVABLE (l->data);
     secret_retrievable_retrieve_secret (g_object_ref (retrievable),
-                                        NULL,
+                                        data->cancellable,
                                         (GAsyncReadyCallback)retrieve_secret_cb,
                                         data);
   }
@@ -764,6 +776,7 @@ ephy_password_manager_query (EphyPasswordManager              *self,
                              const char                       *username_field,
                              const char                       *password_field,
                              gboolean                          allow_retry_without_fields,
+                             GCancellable                     *cancellable,
                              EphyPasswordManagerQueryCallback  callback,
                              gpointer                          user_data)
 {
@@ -777,7 +790,7 @@ ephy_password_manager_query (EphyPasswordManager              *self,
 
   attributes = get_attributes_table (id, origin, target_origin, username,
                                      username_field, password_field, -1);
-  data = query_async_data_new (callback, user_data);
+  data = query_async_data_new (callback, user_data, cancellable);
 
   if (allow_retry_without_fields && (username_field || password_field))
     data->retry_attributes = get_attributes_table (id, origin, target_origin, username,
@@ -786,7 +799,7 @@ ephy_password_manager_query (EphyPasswordManager              *self,
   secret_password_searchv (EPHY_FORM_PASSWORD_SCHEMA,
                            attributes,
                            SECRET_SEARCH_ALL | SECRET_SEARCH_UNLOCK | SECRET_SEARCH_LOAD_SECRETS,
-                           NULL,
+                           cancellable,
                            (GAsyncReadyCallback)secret_password_search_cb,
                            data);
 
@@ -907,6 +920,11 @@ forget_cb (GList    **records,
   EphyPasswordManager *self = EPHY_PASSWORD_MANAGER (g_task_get_source_object (task));
   EphyPasswordRecord *record;
 
+  if (g_task_return_error_if_cancelled (task)) {
+    g_object_unref (task);
+    return;
+  }
+
   /* Since we included ID in our query, this list should always be of length 1.
    * But older versions of EphyPasswordManager would accidentally create
    * duplicate records with the same ID, so we have to handle this.
@@ -916,6 +934,13 @@ forget_cb (GList    **records,
   if (g_list_length (*records) > 1) {
     g_warning ("Deleting unexpected duplicate password records (this likely indicates a bug in EphyPasswordManager)");
     *records = ephy_password_manager_deduplicate_records (self, *records);
+  }
+
+  if (!*records) {
+    g_task_return_new_error (task, G_IO_ERROR, G_IO_ERROR_NOT_FOUND,
+                             _("Password record not found"));
+    g_object_unref (task);
+    return;
   }
 
   record = EPHY_PASSWORD_RECORD ((*records)->data);
@@ -954,6 +979,7 @@ ephy_password_manager_forget (EphyPasswordManager *self,
   ephy_password_manager_query (self, id,
                                NULL, NULL, NULL, NULL, NULL,
                                FALSE,
+                               NULL,
                                forget_cb, task);
 }
 
@@ -985,6 +1011,7 @@ ephy_password_manager_forget_all (EphyPasswordManager *self)
    * we need to obtain the password records first and emit the signal for each
    * one before clearing the secret schema. */
   ephy_password_manager_query (self, NULL, NULL, NULL, NULL, NULL, NULL, FALSE,
+                               NULL,
                                forget_all_cb, self);
 }
 
@@ -1081,6 +1108,7 @@ ephy_password_manager_replace_existing (EphyPasswordManager *self,
   ephy_password_manager_query (self, ephy_password_record_get_id (record),
                                NULL, NULL, NULL, NULL, NULL,
                                FALSE,
+                               NULL,
                                replace_existing_cb,
                                manage_record_async_data_new (self, record, NULL));
 }
@@ -1370,6 +1398,7 @@ synchronizable_manager_merge (EphySynchronizableManager              *manager,
   EphyPasswordManager *self = EPHY_PASSWORD_MANAGER (manager);
 
   ephy_password_manager_query (self, NULL, NULL, NULL, NULL, NULL, NULL, FALSE,
+                               NULL,
                                merge_cb,
                                merge_passwords_async_data_new (self,
                                                                is_initial,
