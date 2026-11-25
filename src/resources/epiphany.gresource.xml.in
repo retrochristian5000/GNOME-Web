@@ -47,6 +47,8 @@
     <file preprocess="xml-stripblanks" compressed="true" alias="gtk/window.ui">resources/gtk/window.ui</file>
     <file>mask.glsl</file>
     <file alias="hush.json">../../third-party/hush/hush.json</file>
+    <file compressed="true">screenshot-overlay.css</file>
+    <file compressed="true">screenshot-overlay.js</file>
   </gresource>
   <gresource prefix="/org/gnome/epiphany/page-templates">
     <file compressed="true">about.css</file>

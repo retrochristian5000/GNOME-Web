@@ -1,0 +1,33 @@
+/* Declarations are marked !important because a user stylesheet otherwise loses
+ * to the page's own rules.
+ */
+
+#ephy-screenshot-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  cursor: crosshair !important;
+}
+
+#ephy-screenshot-overlay:focus {
+  outline: none !important;
+}
+
+#ephy-screenshot-highlight {
+  position: fixed !important;
+  display: none !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 2px dashed AccentColor !important;
+  background-color: color-mix(in srgb, AccentColor 20%, transparent) !important;
+  pointer-events: none !important;
+}
+
+#ephy-screenshot-highlight.visible {
+  display: block !important;
+}
