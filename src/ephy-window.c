@@ -3021,7 +3021,7 @@ tab_view_setup_menu_cb (AdwTabView *tab_view,
   gboolean overview_open = adw_tab_overview_get_open (ADW_TAB_OVERVIEW (window->overview));
 
   if (page) {
-    view = ephy_embed_get_web_view (EPHY_EMBED (adw_tab_page_get_child (page)));
+    view = ephy_embed_get_web_view_if_created (EPHY_EMBED (adw_tab_page_get_child (page)));
     n_pages = adw_tab_view_get_n_pages (tab_view);
     n_pinned_pages = adw_tab_view_get_n_pinned_pages (tab_view);
     position = adw_tab_view_get_page_position (tab_view, page);
@@ -3336,6 +3336,27 @@ permission_requested_cb (EphyWebView             *view,
 
   adw_dialog_present (dialog, GTK_WIDGET (window));
 }
+static void
+window_connect_web_view (EphyWindow  *window,
+                         EphyWebView *view)
+{
+  g_signal_connect_object (view, "download-only-load",
+                           G_CALLBACK (download_only_load_cb), window, G_CONNECT_AFTER);
+
+  g_signal_connect_object (view, "permission-requested",
+                           G_CALLBACK (permission_requested_cb), window, G_CONNECT_AFTER);
+
+  g_signal_connect_object (view, "notify::reader-mode",
+                           G_CALLBACK (reader_mode_cb), window, G_CONNECT_AFTER);
+}
+
+static void
+window_embed_web_view_created_cb (EphyEmbed   *embed,
+                                  EphyWebView *view,
+                                  EphyWindow  *window)
+{
+  window_connect_web_view (window, view);
+}
 
 static void
 tab_view_page_attached_cb (AdwTabView *tab_view,
@@ -3345,6 +3366,7 @@ tab_view_page_attached_cb (AdwTabView *tab_view,
 {
   GtkWidget *content = adw_tab_page_get_child (page);
   EphyEmbed *embed;
+  EphyWebView *view;
 
   g_assert (EPHY_IS_EMBED (content));
 
@@ -3352,14 +3374,14 @@ tab_view_page_attached_cb (AdwTabView *tab_view,
 
   LOG ("page-attached tab view %p embed %p position %d\n", tab_view, embed, position);
 
-  g_signal_connect_object (ephy_embed_get_web_view (embed), "download-only-load",
-                           G_CALLBACK (download_only_load_cb), window, G_CONNECT_AFTER);
-
-  g_signal_connect_object (ephy_embed_get_web_view (embed), "permission-requested",
-                           G_CALLBACK (permission_requested_cb), window, G_CONNECT_AFTER);
-
-  g_signal_connect_object (ephy_embed_get_web_view (embed), "notify::reader-mode",
-                           G_CALLBACK (reader_mode_cb), window, G_CONNECT_AFTER);
+  view = ephy_embed_get_web_view_if_created (embed);
+  if (view) {
+    window_connect_web_view (window, view);
+  } else {
+    g_signal_connect_object (embed, "web-view-created",
+                             G_CALLBACK (window_embed_web_view_created_cb), window,
+                             G_CONNECT_DEFAULT);
+  }
 
   if (window->present_on_insert) {
     window->present_on_insert = FALSE;
@@ -3374,6 +3396,7 @@ tab_view_page_detached_cb (AdwTabView *tab_view,
                            EphyWindow *window)
 {
   GtkWidget *content = adw_tab_page_get_child (page);
+  EphyWebView *view;
 
   LOG ("page-detached tab view %p embed %p position %d\n", tab_view, content, position);
 
@@ -3382,12 +3405,15 @@ tab_view_page_detached_cb (AdwTabView *tab_view,
 
   g_assert (EPHY_IS_EMBED (content));
 
-  g_signal_handlers_disconnect_by_func
-    (ephy_embed_get_web_view (EPHY_EMBED (content)), G_CALLBACK (download_only_load_cb), window);
-  g_signal_handlers_disconnect_by_func
-    (ephy_embed_get_web_view (EPHY_EMBED (content)), G_CALLBACK (permission_requested_cb), window);
-  g_signal_handlers_disconnect_by_func
-    (ephy_embed_get_web_view (EPHY_EMBED (content)), G_CALLBACK (reader_mode_cb), window);
+  view = ephy_embed_get_web_view_if_created (EPHY_EMBED (content));
+  if (view) {
+    g_signal_handlers_disconnect_by_func
+      (view, G_CALLBACK (download_only_load_cb), window);
+    g_signal_handlers_disconnect_by_func
+      (view, G_CALLBACK (permission_requested_cb), window);
+    g_signal_handlers_disconnect_by_func
+      (view, G_CALLBACK (reader_mode_cb), window);
+  }
 
   if (ephy_tab_view_get_n_pages (window->tab_view) == 0)
     window->active_embed = NULL;
@@ -3616,7 +3642,8 @@ tab_view_close_page_cb (AdwTabView *tab_view,
   }
 
   if (g_settings_get_boolean (EPHY_SETTINGS_MAIN,
-                              EPHY_PREFS_WARN_ON_CLOSE_UNSUBMITTED_DATA)) {
+                              EPHY_PREFS_WARN_ON_CLOSE_UNSUBMITTED_DATA) &&
+      ephy_embed_get_web_view_if_created (embed) != NULL) {
     TabHasModifiedFormsData *data;
 
     /* The modified forms check runs in the web process, which is problematic

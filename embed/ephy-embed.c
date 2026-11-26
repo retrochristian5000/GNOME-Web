@@ -103,6 +103,13 @@ typedef enum {
 
 static GParamSpec *obj_properties[PROP_PROGRESS_BAR_ENABLED + 1];
 
+enum {
+  WEB_VIEW_CREATED,
+  LAST_SIGNAL
+};
+
+static guint signals[LAST_SIGNAL] = { 0 };
+
 /* Portions of the following code based on GTK+.
  * License block as follows:
  *
@@ -411,8 +418,10 @@ ephy_embed_dispose (GObject *object)
   g_clear_handle_id (&embed->delayed_request_source_id, g_source_remove);
   g_clear_handle_id (&embed->fullscreen_message_id, g_source_remove);
 
-  g_clear_signal_handler (&embed->status_handler_id, embed->web_view);
-  g_clear_signal_handler (&embed->progress_update_handler_id, embed->web_view);
+  if (embed->web_view) {
+    g_clear_signal_handler (&embed->status_handler_id, embed->web_view);
+    g_clear_signal_handler (&embed->progress_update_handler_id, embed->web_view);
+  }
 
   g_clear_object (&embed->delayed_request);
   g_clear_pointer (&embed->delayed_state, webkit_web_view_session_state_unref);
@@ -523,6 +532,14 @@ ephy_embed_class_init (EphyEmbedClass *klass)
                           G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | G_PARAM_STATIC_STRINGS);
 
   g_object_class_install_properties (object_class, G_N_ELEMENTS (obj_properties), obj_properties);
+
+  signals[WEB_VIEW_CREATED] =
+    g_signal_new ("web-view-created",
+                  G_OBJECT_CLASS_TYPE (object_class),
+                  G_SIGNAL_RUN_LAST,
+                  0, NULL, NULL, NULL,
+                  G_TYPE_NONE, 1,
+                  EPHY_TYPE_WEB_VIEW);
 }
 
 static gboolean
@@ -736,66 +753,29 @@ floating_bar_motion_cb (GtkEventControllerMotion *self,
 }
 
 static void
-ephy_embed_constructed (GObject *object)
+ephy_embed_attach_web_view (EphyEmbed   *embed,
+                            EphyWebView *web_view)
 {
-  EphyEmbed *embed = (EphyEmbed *)object;
-  EphyEmbedShell *shell = ephy_embed_shell_get_default ();
   WebKitWebInspector *inspector;
-  GtkEventController *controller;
 
-  G_OBJECT_CLASS (ephy_embed_parent_class)->constructed (object);
+  g_assert (EPHY_IS_EMBED (embed));
+  g_assert (EPHY_IS_WEB_VIEW (web_view));
+  g_assert (embed->web_view == NULL);
 
-  g_signal_connect_object (shell, "window-restored",
-                           G_CALLBACK (ephy_embed_restored_window_cb), embed, G_CONNECT_DEFAULT);
+  embed->web_view = WEBKIT_WEB_VIEW (web_view);
 
-  g_signal_connect (embed, "map",
-                    G_CALLBACK (ephy_embed_mapped_cb), NULL);
-
-  /* Skeleton */
-  embed->overlay = gtk_overlay_new ();
-
-  gtk_widget_set_vexpand (embed->overlay, TRUE);
   gtk_overlay_set_child (GTK_OVERLAY (embed->overlay), gtk_graphics_offload_new (GTK_WIDGET (embed->web_view)));
-
-  /* Floating message popup for fullscreen mode. */
-  embed->fullscreen_message_label = gtk_label_new (NULL);
-  gtk_widget_set_name (embed->fullscreen_message_label, "fullscreen-popup");
-  gtk_widget_set_halign (embed->fullscreen_message_label, GTK_ALIGN_CENTER);
-  gtk_widget_set_valign (embed->fullscreen_message_label, GTK_ALIGN_CENTER);
-  gtk_widget_set_can_target (embed->fullscreen_message_label, FALSE);
-  gtk_widget_set_visible (embed->fullscreen_message_label, FALSE);
-  gtk_overlay_add_overlay (GTK_OVERLAY (embed->overlay), embed->fullscreen_message_label);
-  ephy_embed_set_fullscreen_message (embed, FALSE);
-
-  /* statusbar is hidden by default */
-  embed->floating_bar = ephy_floating_bar_new ();
-  gtk_widget_set_halign (embed->floating_bar, GTK_ALIGN_START);
-  gtk_widget_set_valign (embed->floating_bar, GTK_ALIGN_END);
-  gtk_widget_set_visible (embed->floating_bar, FALSE);
-
-  gtk_overlay_add_overlay (GTK_OVERLAY (embed->overlay), embed->floating_bar);
-
-  if (embed->progress_bar_enabled) {
-    embed->progress = gtk_progress_bar_new ();
-    gtk_widget_add_css_class (embed->progress, "osd");
-    gtk_widget_set_halign (embed->progress, GTK_ALIGN_FILL);
-    gtk_widget_set_valign (embed->progress, GTK_ALIGN_START);
-    gtk_overlay_add_overlay (GTK_OVERLAY (embed->overlay), embed->progress);
-  }
 
   embed->find_toolbar = ephy_find_toolbar_new (embed->web_view);
   g_signal_connect_object (embed->find_toolbar, "close",
                            G_CALLBACK (ephy_embed_find_toolbar_close_cb),
                            embed, G_CONNECT_DEFAULT);
 
-  gtk_box_append (GTK_BOX (embed), GTK_WIDGET (embed->find_toolbar));
+  gtk_box_prepend (GTK_BOX (embed), GTK_WIDGET (embed->find_toolbar));
 
   if (embed->progress_bar_enabled)
     embed->progress_update_handler_id = g_signal_connect_object (embed->web_view, "notify::estimated-load-progress",
                                                                  G_CALLBACK (progress_update), embed, G_CONNECT_DEFAULT);
-
-  gtk_box_append (GTK_BOX (embed), GTK_WIDGET (embed->top_widgets_vbox));
-  gtk_box_append (GTK_BOX (embed), GTK_WIDGET (embed->overlay));
 
   g_signal_connect_object (embed->web_view, "notify::title",
                            G_CALLBACK (web_view_title_changed_cb), embed, G_CONNECT_DEFAULT);
@@ -830,9 +810,82 @@ ephy_embed_constructed (GObject *object)
     ephy_embed_add_top_widget (embed, banner, EPHY_EMBED_TOP_WIDGET_POLICY_RETAIN_ON_TRANSITION);
   }
 
+  g_signal_emit (embed, signals[WEB_VIEW_CREATED], 0, embed->web_view);
+}
+
+void
+ephy_embed_ensure_web_view (EphyEmbed *embed)
+{
+  EphyWebView *web_view;
+
+  g_assert (EPHY_IS_EMBED (embed));
+
+  if (embed->web_view)
+    return;
+
+  web_view = EPHY_WEB_VIEW (ephy_web_view_new ());
+  ephy_embed_attach_web_view (embed, web_view);
+}
+
+static void
+ephy_embed_constructed (GObject *object)
+{
+  EphyEmbed *embed = (EphyEmbed *)object;
+  EphyEmbedShell *shell = ephy_embed_shell_get_default ();
+  GtkEventController *controller;
+  WebKitWebView *initial_web_view;
+
+  G_OBJECT_CLASS (ephy_embed_parent_class)->constructed (object);
+
+  g_signal_connect_object (shell, "window-restored",
+                           G_CALLBACK (ephy_embed_restored_window_cb), embed, G_CONNECT_DEFAULT);
+
+  g_signal_connect (embed, "map",
+                    G_CALLBACK (ephy_embed_mapped_cb), NULL);
+
+  /* Skeleton */
+  embed->overlay = gtk_overlay_new ();
+
+  gtk_widget_set_vexpand (embed->overlay, TRUE);
+
+  /* Floating message popup for fullscreen mode. */
+  embed->fullscreen_message_label = gtk_label_new (NULL);
+  gtk_widget_set_name (embed->fullscreen_message_label, "fullscreen-popup");
+  gtk_widget_set_halign (embed->fullscreen_message_label, GTK_ALIGN_CENTER);
+  gtk_widget_set_valign (embed->fullscreen_message_label, GTK_ALIGN_CENTER);
+  gtk_widget_set_can_target (embed->fullscreen_message_label, FALSE);
+  gtk_widget_set_visible (embed->fullscreen_message_label, FALSE);
+  gtk_overlay_add_overlay (GTK_OVERLAY (embed->overlay), embed->fullscreen_message_label);
+  ephy_embed_set_fullscreen_message (embed, FALSE);
+
+  /* statusbar is hidden by default */
+  embed->floating_bar = ephy_floating_bar_new ();
+  gtk_widget_set_halign (embed->floating_bar, GTK_ALIGN_START);
+  gtk_widget_set_valign (embed->floating_bar, GTK_ALIGN_END);
+  gtk_widget_set_visible (embed->floating_bar, FALSE);
+
+  gtk_overlay_add_overlay (GTK_OVERLAY (embed->overlay), embed->floating_bar);
+
+  if (embed->progress_bar_enabled) {
+    embed->progress = gtk_progress_bar_new ();
+    gtk_widget_add_css_class (embed->progress, "osd");
+    gtk_widget_set_halign (embed->progress, GTK_ALIGN_FILL);
+    gtk_widget_set_valign (embed->progress, GTK_ALIGN_START);
+    gtk_overlay_add_overlay (GTK_OVERLAY (embed->overlay), embed->progress);
+  }
+
+  gtk_box_append (GTK_BOX (embed), GTK_WIDGET (embed->top_widgets_vbox));
+  gtk_box_append (GTK_BOX (embed), GTK_WIDGET (embed->overlay));
+
   controller = gtk_event_controller_motion_new ();
   g_signal_connect (controller, "motion", G_CALLBACK (floating_bar_motion_cb), embed);
   gtk_widget_add_controller (GTK_WIDGET (embed), controller);
+
+  initial_web_view = embed->web_view;
+  if (initial_web_view) {
+    embed->web_view = NULL;
+    ephy_embed_attach_web_view (embed, EPHY_WEB_VIEW (initial_web_view));
+  }
 }
 
 static void
@@ -852,10 +905,26 @@ ephy_embed_init (EphyEmbed *embed)
 }
 
 /**
- * ephy_embed_get_web_view:
- * @embed: and #EphyEmbed
+ * ephy_embed_get_web_view_if_created:
+ * @embed: an #EphyEmbed
  *
- * Returns the #EphyWebView wrapped by @embed.
+ * Returns the #EphyWebView wrapped by @embed, or %NULL if it has not been created yet.
+ *
+ * Returns: (transfer none) (nullable): an #EphyWebView or %NULL
+ **/
+EphyWebView *
+ephy_embed_get_web_view_if_created (EphyEmbed *embed)
+{
+  g_assert (EPHY_IS_EMBED (embed));
+
+  return embed->web_view ? EPHY_WEB_VIEW (embed->web_view) : NULL;
+}
+
+/**
+ * ephy_embed_get_web_view:
+ * @embed: an #EphyEmbed
+ *
+ * Returns the #EphyWebView wrapped by @embed, creating it if necessary.
  *
  * Returns: (transfer none): an #EphyWebView
  **/
@@ -864,12 +933,37 @@ ephy_embed_get_web_view (EphyEmbed *embed)
 {
   g_assert (EPHY_IS_EMBED (embed));
 
+  if (!embed->web_view)
+    ephy_embed_ensure_web_view (embed);
+
   return EPHY_WEB_VIEW (embed->web_view);
 }
 
 /**
+ * ephy_embed_get_uri:
+ * @embed: an #EphyEmbed
+ *
+ * Returns the current or pending URI for @embed.
+ *
+ * Returns: (transfer none) (nullable): the URI
+ **/
+const char *
+ephy_embed_get_uri (EphyEmbed *embed)
+{
+  g_assert (EPHY_IS_EMBED (embed));
+
+  if (embed->delayed_request)
+    return webkit_uri_request_get_uri (embed->delayed_request);
+
+  if (embed->web_view)
+    return webkit_web_view_get_uri (embed->web_view);
+
+  return NULL;
+}
+
+/**
  * ephy_embed_get_find_toolbar:
- * @embed: and #EphyEmbed
+ * @embed: an #EphyEmbed
  *
  * Returns the #EphyFindToolbar wrapped by @embed.
  *
@@ -879,6 +973,9 @@ EphyFindToolbar *
 ephy_embed_get_find_toolbar (EphyEmbed *embed)
 {
   g_assert (EPHY_IS_EMBED (embed));
+
+  if (!embed->find_toolbar)
+    ephy_embed_ensure_web_view (embed);
 
   return EPHY_FIND_TOOLBAR (embed->find_toolbar);
 }
@@ -1007,5 +1104,7 @@ ephy_embed_get_session_state (EphyEmbed *embed)
 {
   if (embed->delayed_state)
     return webkit_web_view_session_state_ref (embed->delayed_state);
-  return webkit_web_view_get_session_state (embed->web_view);
+  if (embed->web_view)
+    return webkit_web_view_get_session_state (embed->web_view);
+  return NULL;
 }

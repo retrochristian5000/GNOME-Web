@@ -69,9 +69,13 @@ indicator_activated_cb (EphyTabView *self,
                         AdwTabPage  *page)
 {
   EphyEmbed *embed = EPHY_EMBED (adw_tab_page_get_child (page));
-  EphyWebView *view = ephy_embed_get_web_view (embed);
-  gboolean muted = webkit_web_view_get_is_muted (WEBKIT_WEB_VIEW (view));
+  EphyWebView *view = ephy_embed_get_web_view_if_created (embed);
+  gboolean muted;
 
+  if (!view)
+    return;
+
+  muted = webkit_web_view_get_is_muted (WEBKIT_WEB_VIEW (view));
   webkit_web_view_set_is_muted (WEBKIT_WEB_VIEW (view), !muted);
 }
 
@@ -339,7 +343,7 @@ static void
 update_title_cb (AdwTabPage *page)
 {
   EphyEmbed *embed = EPHY_EMBED (adw_tab_page_get_child (page));
-  EphyWebView *view = ephy_embed_get_web_view (embed);
+  EphyWebView *view = ephy_embed_get_web_view_if_created (embed);
   const char *title = ephy_embed_get_title (embed);
   const char *address;
 
@@ -353,19 +357,25 @@ update_title_cb (AdwTabPage *page)
     return;
   }
 
-  address = ephy_web_view_get_display_address (view);
+  if (view) {
+    address = ephy_web_view_get_display_address (view);
 
-  if (ephy_web_view_is_loading (view) &&
-      !ephy_embed_utils_is_no_show_address (address))
-    adw_tab_page_set_title (page, address);
+    if (ephy_web_view_is_loading (view) &&
+        !ephy_embed_utils_is_no_show_address (address))
+      adw_tab_page_set_title (page, address);
+  } else {
+    address = ephy_embed_get_uri (embed);
+    if (address && !ephy_embed_utils_is_no_show_address (address))
+      adw_tab_page_set_title (page, address);
+  }
 }
 
 static void
 update_icon_cb (AdwTabPage *page)
 {
   EphyEmbed *embed = EPHY_EMBED (adw_tab_page_get_child (page));
-  EphyWebView *view = ephy_embed_get_web_view (embed);
-  GIcon *icon = ephy_web_view_get_icon (view);
+  EphyWebView *view = ephy_embed_get_web_view_if_created (embed);
+  GIcon *icon = view ? ephy_web_view_get_icon (view) : NULL;
   g_autoptr (GIcon) placeholder_icon = NULL;
   const char *uri, *favicon_name;
 
@@ -374,7 +384,7 @@ update_icon_cb (AdwTabPage *page)
     return;
   }
 
-  uri = webkit_web_view_get_uri (WEBKIT_WEB_VIEW (view));
+  uri = view ? webkit_web_view_get_uri (WEBKIT_WEB_VIEW (view)) : ephy_embed_get_uri (embed);
   favicon_name = ephy_get_fallback_favicon_name (uri, EPHY_FAVICON_TYPE_NO_MISSING_PLACEHOLDER);
 
   if (favicon_name)
@@ -387,12 +397,12 @@ static void
 update_uri_cb (AdwTabPage *page)
 {
   EphyEmbed *embed = EPHY_EMBED (adw_tab_page_get_child (page));
-  EphyWebView *view = ephy_embed_get_web_view (embed);
+  EphyWebView *view = ephy_embed_get_web_view_if_created (embed);
   const char *uri;
 
   update_icon_cb (page);
 
-  uri = webkit_web_view_get_uri (WEBKIT_WEB_VIEW (view));
+  uri = view ? webkit_web_view_get_uri (WEBKIT_WEB_VIEW (view)) : ephy_embed_get_uri (embed);
 
   adw_tab_page_set_keyword (page, uri);
 }
@@ -401,10 +411,10 @@ static void
 update_indicator_cb (AdwTabPage *page)
 {
   EphyEmbed *embed = EPHY_EMBED (adw_tab_page_get_child (page));
-  EphyWebView *view = ephy_embed_get_web_view (embed);
+  EphyWebView *view = ephy_embed_get_web_view_if_created (embed);
   g_autoptr (GIcon) icon = NULL;
 
-  if (webkit_web_view_is_playing_audio (WEBKIT_WEB_VIEW (view))) {
+  if (view && webkit_web_view_is_playing_audio (WEBKIT_WEB_VIEW (view))) {
     if (webkit_web_view_get_is_muted (WEBKIT_WEB_VIEW (view)))
       icon = G_ICON (g_themed_icon_new ("ephy-audio-muted-symbolic"));
     else
@@ -421,14 +431,50 @@ is_loading_transform_cb (GBinding     *binding,
                          gpointer      user_data)
 {
   EphyEmbed *embed = user_data;
-  EphyWebView *web_view = ephy_embed_get_web_view (embed);
-  const char *address = ephy_web_view_get_address (web_view);
+  EphyWebView *web_view = ephy_embed_get_web_view_if_created (embed);
+  const char *address = web_view ? ephy_web_view_get_address (web_view) : NULL;
 
-  if (g_str_has_prefix (address, "about:") || g_str_has_prefix (address, "ephy-about:"))
+  if (address && (g_str_has_prefix (address, "about:") || g_str_has_prefix (address, "ephy-about:")))
     g_value_set_boolean (to_value, FALSE);
   else
     g_value_set_boolean (to_value, g_value_get_boolean (from_value) && !ephy_embed_has_load_pending (embed));
   return TRUE;
+}
+
+static void
+connect_page_web_view (AdwTabPage  *page,
+                       EphyEmbed   *embed,
+                       EphyWebView *view)
+{
+  g_object_bind_property_full (view, "is-loading", page, "loading", G_BINDING_SYNC_CREATE, is_loading_transform_cb, NULL, embed, NULL);
+
+  g_signal_connect_object (view, "notify::display-address",
+                           G_CALLBACK (update_title_cb), page,
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (view, "notify::icon",
+                           G_CALLBACK (update_icon_cb), page,
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (view, "notify::uri",
+                           G_CALLBACK (update_uri_cb), page,
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (view, "notify::is-playing-audio",
+                           G_CALLBACK (update_indicator_cb), page,
+                           G_CONNECT_SWAPPED);
+  g_signal_connect_object (view, "notify::is-muted",
+                           G_CALLBACK (update_indicator_cb), page,
+                           G_CONNECT_SWAPPED);
+
+  update_title_cb (page);
+  update_uri_cb (page);
+  update_indicator_cb (page);
+}
+
+static void
+tab_view_embed_web_view_created_cb (EphyEmbed   *embed,
+                                    EphyWebView *view,
+                                    AdwTabPage  *page)
+{
+  connect_page_web_view (page, embed, view);
 }
 
 int
@@ -461,34 +507,24 @@ ephy_tab_view_add_tab (EphyTabView *self,
   if (jump_to)
     adw_tab_view_set_selected_page (self->tab_view, page);
 
-  view = ephy_embed_get_web_view (embed);
-
   adw_tab_page_set_indicator_activatable (page, TRUE);
-
-  g_object_bind_property_full (view, "is-loading", page, "loading", G_BINDING_SYNC_CREATE, is_loading_transform_cb, NULL, embed, NULL);
 
   g_signal_connect_object (embed, "notify::title",
                            G_CALLBACK (update_title_cb), page,
                            G_CONNECT_SWAPPED);
-  g_signal_connect_object (view, "notify::display-address",
-                           G_CALLBACK (update_title_cb), page,
-                           G_CONNECT_SWAPPED);
-  g_signal_connect_object (view, "notify::icon",
-                           G_CALLBACK (update_icon_cb), page,
-                           G_CONNECT_SWAPPED);
-  g_signal_connect_object (view, "notify::uri",
-                           G_CALLBACK (update_uri_cb), page,
-                           G_CONNECT_SWAPPED);
-  g_signal_connect_object (view, "notify::is-playing-audio",
-                           G_CALLBACK (update_indicator_cb), page,
-                           G_CONNECT_SWAPPED);
-  g_signal_connect_object (view, "notify::is-muted",
-                           G_CALLBACK (update_indicator_cb), page,
-                           G_CONNECT_SWAPPED);
 
-  update_title_cb (page);
-  update_uri_cb (page);
-  update_indicator_cb (page);
+  view = ephy_embed_get_web_view_if_created (embed);
+  if (view) {
+    connect_page_web_view (page, embed, view);
+  } else {
+    adw_tab_page_set_loading (page, FALSE);
+    g_signal_connect_object (embed, "web-view-created",
+                             G_CALLBACK (tab_view_embed_web_view_created_cb), page,
+                             G_CONNECT_DEFAULT);
+    update_title_cb (page);
+    update_uri_cb (page);
+    update_indicator_cb (page);
+  }
 
   return adw_tab_view_get_page_position (self->tab_view, page);
 }

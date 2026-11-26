@@ -67,8 +67,9 @@ typedef enum {
   EPHY_NEW_TAB_FIRST        = 1 << 1,
   EPHY_NEW_TAB_APPEND_LAST  = 1 << 2,
   EPHY_NEW_TAB_APPEND_AFTER = 1 << 3,
-  EPHY_NEW_TAB_JUMP   = 1 << 4,
-  EPHY_NEW_TAB_PINNED = 1 << 5,
+  EPHY_NEW_TAB_JUMP         = 1 << 4,
+  EPHY_NEW_TAB_PINNED       = 1 << 5,
+  EPHY_NEW_TAB_DELAY_LOAD   = 1 << 6,
 } EphyNewTabFlags;
 
 typedef enum {
