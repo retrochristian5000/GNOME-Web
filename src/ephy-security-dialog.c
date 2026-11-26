@@ -63,6 +63,7 @@ struct _EphySecurityDialog {
   GtkWidget *access_webcam_combo_row;
   GtkWidget *access_display_combo_row;
   GtkWidget *autoplay_combo_row;
+  GtkWidget *popups_combo_row;
   GtkWidget *listbox;
   GTlsCertificate *certificate;
   GTlsCertificateFlags tls_errors;
@@ -157,6 +158,7 @@ ephy_security_dialog_set_address (EphySecurityDialog *dialog,
   set_permission_combo_row_state (permissions_manager, EPHY_PERMISSION_TYPE_ACCESS_WEBCAM, origin, dialog->access_webcam_combo_row);
   set_permission_combo_row_state (permissions_manager, EPHY_PERMISSION_TYPE_ACCESS_DISPLAY, origin, dialog->access_display_combo_row);
   set_permission_combo_row_state (permissions_manager, EPHY_PERMISSION_TYPE_AUTOPLAY_POLICY, origin, dialog->autoplay_combo_row);
+  set_permission_combo_row_state (permissions_manager, EPHY_PERMISSION_TYPE_POPUPS, origin, dialog->popups_combo_row);
 }
 
 static void
@@ -466,6 +468,14 @@ on_autoplay_policy_combo_row_changed (AdwComboRow        *row,
   handle_permission_combo_row_changed (dialog, adw_combo_row_get_selected (row), EPHY_PERMISSION_TYPE_AUTOPLAY_POLICY);
 }
 
+static void
+on_popups_combo_row_changed (AdwComboRow        *row,
+                             GParamSpec         *psepc,
+                             EphySecurityDialog *dialog)
+{
+  handle_permission_combo_row_changed (dialog, adw_combo_row_get_selected (row), EPHY_PERMISSION_TYPE_POPUPS);
+}
+
 static GtkWidget *
 add_permission_combo_row (EphySecurityDialog *dialog,
                           const gchar        *name,
@@ -523,6 +533,8 @@ ephy_security_dialog_init (EphySecurityDialog *dialog)
   dialog->access_display_combo_row = add_permission_combo_row (dialog, _("Display Access"), on_access_display_combo_row_changed, combo_row_size_group, FALSE, NULL);
   /* TRANSLATORS: This is a permission toggle in the Security & Permissions dialog. */
   dialog->autoplay_combo_row = add_permission_combo_row (dialog, _("Media Autoplay"), on_autoplay_policy_combo_row_changed, combo_row_size_group, FALSE, _("Without Sound"));
+  /* TRANSLATORS: This is a permission toggle in the Security & Permissions dialog. */
+  dialog->popups_combo_row = add_permission_combo_row (dialog, _("Pop-ups"), on_popups_combo_row_changed, combo_row_size_group, FALSE, NULL);
 }
 
 GtkWidget *

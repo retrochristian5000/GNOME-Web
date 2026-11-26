@@ -61,6 +61,9 @@ void             ephy_embed_set_animate_reader_mode       (EphyEmbed *embed,
 gboolean         ephy_embed_get_animate_search_engine     (EphyEmbed *embed);
 void             ephy_embed_set_animate_search_engine     (EphyEmbed *embed,
                                                            gboolean   animate);
+gboolean         ephy_embed_get_animate_popup_blocked     (EphyEmbed *embed);
+void             ephy_embed_set_animate_popup_blocked     (EphyEmbed *embed,
+                                                           gboolean   animate);
 WebKitWebViewSessionState
                 *ephy_embed_get_session_state             (EphyEmbed *embed);
 
