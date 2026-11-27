@@ -20,7 +20,9 @@
 
 #include "ephy-passwords-view.h"
 
+#include "ephy-embed-container.h"
 #include "ephy-shell.h"
+#include "ephy-uri-helpers.h"
 
 #include "preferences/ephy-data-view.h"
 
@@ -33,9 +35,14 @@ struct _EphyPasswordsView {
   EphyDataView *data_view;
   GList *records;
   GtkWidget *toast_overlay;
+  GtkWidget *current_section;
+  GtkWidget *current_listbox;
+  GtkWidget *other_section;
+  GtkWidget *other_heading;
   GtkWidget *listbox;
   GtkWidget *confirmation_dialog;
 
+  char *current_origin;
   GCancellable *cancellable;
 };
 
@@ -48,6 +55,7 @@ static void
 on_search_text_changed (EphyPasswordsView *passwords_view)
 {
   ephy_data_view_set_has_search_results (EPHY_DATA_VIEW (passwords_view->data_view), FALSE);
+  gtk_list_box_invalidate_filter (GTK_LIST_BOX (passwords_view->current_listbox));
   gtk_list_box_invalidate_filter (GTK_LIST_BOX (passwords_view->listbox));
 }
 
@@ -104,7 +112,11 @@ forget_clicked (GtkWidget *button,
                                 passwords_view);
 
   /* Clear internal state */
+  gtk_list_box_remove_all (GTK_LIST_BOX (passwords_view->current_listbox));
   gtk_list_box_remove_all (GTK_LIST_BOX (passwords_view->listbox));
+  gtk_widget_set_visible (passwords_view->current_section, FALSE);
+  gtk_widget_set_visible (passwords_view->other_heading, FALSE);
+  gtk_widget_set_visible (passwords_view->other_section, TRUE);
   g_clear_list (&passwords_view->records, g_object_unref);
 
   /* Present loading spinner while waiting for the async forget op to finish */
@@ -139,13 +151,30 @@ copy_username_clicked (GtkWidget *button,
 }
 
 static void
+ephy_passwords_view_finalize (GObject *object)
+{
+  EphyPasswordsView *self = EPHY_PASSWORDS_VIEW (object);
+
+  g_clear_pointer (&self->current_origin, g_free);
+
+  G_OBJECT_CLASS (ephy_passwords_view_parent_class)->finalize (object);
+}
+
+static void
 ephy_passwords_view_class_init (EphyPasswordsViewClass *klass)
 {
+  GObjectClass *object_class = G_OBJECT_CLASS (klass);
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
+
+  object_class->finalize = ephy_passwords_view_finalize;
 
   gtk_widget_class_set_template_from_resource (widget_class,
                                                "/org/gnome/epiphany/gtk/passwords-view.ui");
 
+  gtk_widget_class_bind_template_child (widget_class, EphyPasswordsView, current_section);
+  gtk_widget_class_bind_template_child (widget_class, EphyPasswordsView, current_listbox);
+  gtk_widget_class_bind_template_child (widget_class, EphyPasswordsView, other_section);
+  gtk_widget_class_bind_template_child (widget_class, EphyPasswordsView, other_heading);
   gtk_widget_class_bind_template_child (widget_class, EphyPasswordsView, listbox);
   gtk_widget_class_bind_template_child (widget_class, EphyPasswordsView, data_view);
 
@@ -162,7 +191,11 @@ confirmation_dialog_response_cb (EphyPasswordsView *self)
 {
   ephy_password_manager_forget_all (self->manager);
 
+  gtk_list_box_remove_all (GTK_LIST_BOX (self->current_listbox));
   gtk_list_box_remove_all (GTK_LIST_BOX (self->listbox));
+  gtk_widget_set_visible (self->current_section, FALSE);
+  gtk_widget_set_visible (self->other_heading, FALSE);
+  gtk_widget_set_visible (self->other_section, TRUE);
   ephy_data_view_set_has_data (EPHY_DATA_VIEW (self->data_view), FALSE);
 
   g_clear_list (&self->records, g_object_unref);
@@ -234,6 +267,8 @@ populate_model_cb (GList    **records,
                    gpointer   user_data)
 {
   EphyPasswordsView *passwords_view = EPHY_PASSWORDS_VIEW (user_data);
+  gboolean has_current = FALSE;
+  gboolean has_other = FALSE;
 
   ephy_data_view_set_is_loading (EPHY_DATA_VIEW (passwords_view->data_view), FALSE);
 
@@ -244,11 +279,14 @@ populate_model_cb (GList    **records,
     GtkWidget *button;
     const char *text;
     const char *username;
+    const char *origin;
+    gboolean is_current;
 
     row = adw_expander_row_new ();
     g_object_set_data (G_OBJECT (row), "record", record);
     adw_preferences_row_set_use_markup (ADW_PREFERENCES_ROW (row), FALSE);
-    adw_preferences_row_set_title (ADW_PREFERENCES_ROW (row), ephy_password_record_get_origin (record));
+    origin = ephy_password_record_get_origin (record);
+    adw_preferences_row_set_title (ADW_PREFERENCES_ROW (row), origin);
     username = ephy_password_record_get_username (record);
     if (username)
       adw_expander_row_set_subtitle (ADW_EXPANDER_ROW (row), username);
@@ -302,8 +340,19 @@ populate_model_cb (GList    **records,
 
     g_object_set_data (G_OBJECT (record), "passwords-view", passwords_view);
 
-    gtk_list_box_append (GTK_LIST_BOX (passwords_view->listbox), row);
+    is_current = passwords_view->current_origin && g_strcmp0 (origin, passwords_view->current_origin) == 0;
+    if (is_current) {
+      gtk_list_box_append (GTK_LIST_BOX (passwords_view->current_listbox), row);
+      has_current = TRUE;
+    } else {
+      gtk_list_box_append (GTK_LIST_BOX (passwords_view->listbox), row);
+      has_other = TRUE;
+    }
   }
+
+  gtk_widget_set_visible (passwords_view->current_section, has_current);
+  gtk_widget_set_visible (passwords_view->other_heading, has_current && has_other);
+  gtk_widget_set_visible (passwords_view->other_section, has_other);
 
   if (g_list_length (*records))
     ephy_data_view_set_has_data (EPHY_DATA_VIEW (passwords_view->data_view), TRUE);
@@ -354,6 +403,28 @@ password_filter (GtkListBoxRow *row,
   return visible;
 }
 
+static int
+password_sort (GtkListBoxRow *row1,
+               GtkListBoxRow *row2,
+               gpointer       user_data)
+{
+  EphyPasswordsView *self = EPHY_PASSWORDS_VIEW (user_data);
+  EphyPasswordRecord *record1 = g_object_get_data (G_OBJECT (row1), "record");
+  EphyPasswordRecord *record2 = g_object_get_data (G_OBJECT (row2), "record");
+  const char *origin1 = ephy_password_record_get_origin (record1);
+  const char *origin2 = ephy_password_record_get_origin (record2);
+
+  if (self->current_origin) {
+    gboolean match1 = g_strcmp0 (origin1, self->current_origin) == 0;
+    gboolean match2 = g_strcmp0 (origin2, self->current_origin) == 0;
+
+    if (match1 != match2)
+      return match1 ? -1 : 1;
+  }
+
+  return g_strcmp0 (origin1, origin2);
+}
+
 static void
 ephy_passwords_view_init (EphyPasswordsView *self)
 {
@@ -363,7 +434,10 @@ ephy_passwords_view_init (EphyPasswordsView *self)
 
   self->cancellable = g_cancellable_new ();
 
+  gtk_list_box_set_filter_func (GTK_LIST_BOX (self->current_listbox), password_filter, self, NULL);
+  gtk_list_box_set_sort_func (GTK_LIST_BOX (self->current_listbox), password_sort, self, NULL);
   gtk_list_box_set_filter_func (GTK_LIST_BOX (self->listbox), password_filter, self, NULL);
+  gtk_list_box_set_sort_func (GTK_LIST_BOX (self->listbox), password_sort, self, NULL);
   gtk_list_box_set_selection_mode (GTK_LIST_BOX (self->listbox), GTK_SELECTION_NONE);
 
   populate_model (self);
@@ -373,6 +447,17 @@ void
 ephy_passwords_show (EphyWindow *window)
 {
   GtkWidget *dialog = g_object_new (EPHY_TYPE_PASSWORDS_VIEW, NULL);
+  EphyPasswordsView *self = EPHY_PASSWORDS_VIEW (dialog);
+  EphyEmbed *embed = ephy_embed_container_get_active_child (EPHY_EMBED_CONTAINER (window));
 
+  if (embed) {
+    EphyWebView *web_view = ephy_embed_get_web_view (embed);
+    const char *address = ephy_web_view_get_address (web_view);
+
+    if (address)
+      self->current_origin = ephy_uri_to_security_origin (address);
+  }
+
+  gtk_list_box_invalidate_sort (GTK_LIST_BOX (self->listbox));
   adw_dialog_present (ADW_DIALOG (dialog), GTK_WIDGET (window));
 }

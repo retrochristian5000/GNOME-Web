@@ -42,6 +42,7 @@
 #include "ephy-flatpak-utils.h"
 #include "ephy-history-service.h"
 #include "ephy-password-manager.h"
+#include "ephy-password-popover.h"
 #include "ephy-profile-utils.h"
 #include "ephy-reader-handler.h"
 #include "ephy-settings.h"
@@ -416,13 +417,9 @@ web_process_extension_password_manager_save_real (EphyEmbedShell *shell,
   if (!origin || !target_origin)
     return;
 
-  /* Both password and password field are required. */
-  if (!password || !password_field)
+  /* Password is required; password_field may be NULL for inputs without name/id. */
+  if (!password)
     return;
-
-  /* The username field is required if username is present. */
-  if (username && !username_field)
-    g_clear_pointer (&username, g_free);
 
   /* The username is required if username field is present. */
   if (!username && username_field)
@@ -475,6 +472,84 @@ web_process_extension_password_manager_request_save_received_cb (WebKitUserConte
                                                                  EphyEmbedShell           *shell)
 {
   web_process_extension_password_manager_save_real (shell, message, TRUE);
+}
+
+static void
+web_process_extension_password_manager_show_menu_received_cb (WebKitUserContentManager *manager,
+                                                              JSCValue                 *message,
+                                                              EphyEmbedShell           *shell)
+{
+  g_autofree char *origin = property_to_string_or_null (message, "origin");
+  g_autofree char *selected = property_to_string_or_null (message, "selected");
+  guint64 page_id = property_to_uint64 (message, "pageID");
+  guint64 frame_id = property_to_uint64 (message, "frameID");
+  g_autoptr (JSCValue) users_prop = jsc_value_object_get_property (message, "users");
+  g_autoptr (JSCValue) x_prop = jsc_value_object_get_property (message, "x");
+  g_autoptr (JSCValue) y_prop = jsc_value_object_get_property (message, "y");
+  g_autoptr (JSCValue) width_prop = jsc_value_object_get_property (message, "width");
+  g_autoptr (JSCValue) height_prop = jsc_value_object_get_property (message, "height");
+  g_autoptr (GPtrArray) users_array = NULL;
+  EphyWebView *view;
+  int x, y, width, height;
+
+  if (!origin || !users_prop || !jsc_value_is_array (users_prop))
+    return;
+
+  view = ephy_embed_shell_get_view_for_page_id (shell, page_id, origin);
+  if (!view)
+    return;
+
+  users_array = g_ptr_array_new_with_free_func (g_free);
+  {
+    g_autoptr (JSCValue) len_prop = jsc_value_object_get_property (users_prop, "length");
+    gint32 len = jsc_value_to_int32 (len_prop);
+
+    for (gint32 i = 0; i < len; i++) {
+      g_autoptr (JSCValue) item = jsc_value_object_get_property_at_index (users_prop, (guint)i);
+      if (item && jsc_value_is_string (item))
+        g_ptr_array_add (users_array, jsc_value_to_string (item));
+    }
+  }
+  g_ptr_array_add (users_array, NULL);
+
+  x = (int)jsc_value_to_double (x_prop);
+  y = (int)jsc_value_to_double (y_prop);
+  width = (int)jsc_value_to_double (width_prop);
+  height = (int)jsc_value_to_double (height_prop);
+
+  ephy_password_popover_show_users (view, frame_id, origin,
+                                    (const char * const *)users_array->pdata,
+                                    selected, x, y, width, height);
+}
+
+static void
+web_process_extension_password_manager_show_generate_received_cb (WebKitUserContentManager *manager,
+                                                                  JSCValue                 *message,
+                                                                  EphyEmbedShell           *shell)
+{
+  g_autofree char *origin = property_to_string_or_null (message, "origin");
+  guint64 page_id = property_to_uint64 (message, "pageID");
+  guint64 frame_id = property_to_uint64 (message, "frameID");
+  g_autoptr (JSCValue) x_prop = jsc_value_object_get_property (message, "x");
+  g_autoptr (JSCValue) y_prop = jsc_value_object_get_property (message, "y");
+  g_autoptr (JSCValue) width_prop = jsc_value_object_get_property (message, "width");
+  g_autoptr (JSCValue) height_prop = jsc_value_object_get_property (message, "height");
+  EphyWebView *view;
+  int x, y, width, height;
+
+  if (!origin)
+    return;
+
+  view = ephy_embed_shell_get_view_for_page_id (shell, page_id, origin);
+  if (!view)
+    return;
+
+  x = (int)jsc_value_to_double (x_prop);
+  y = (int)jsc_value_to_double (y_prop);
+  width = (int)jsc_value_to_double (width_prop);
+  height = (int)jsc_value_to_double (height_prop);
+
+  ephy_password_popover_show_generate (view, frame_id, x, y, width, height);
 }
 
 static void
@@ -1422,6 +1497,20 @@ ephy_embed_shell_register_ucm (EphyEmbedShell           *shell,
                            shell, G_CONNECT_DEFAULT);
 
   webkit_user_content_manager_register_script_message_handler (ucm,
+                                                               "passwordManagerShowMenu",
+                                                               priv->guid);
+  g_signal_connect_object (ucm, "script-message-received::passwordManagerShowMenu",
+                           G_CALLBACK (web_process_extension_password_manager_show_menu_received_cb),
+                           shell, G_CONNECT_DEFAULT);
+
+  webkit_user_content_manager_register_script_message_handler (ucm,
+                                                               "passwordManagerShowGenerate",
+                                                               priv->guid);
+  g_signal_connect_object (ucm, "script-message-received::passwordManagerShowGenerate",
+                           G_CALLBACK (web_process_extension_password_manager_show_generate_received_cb),
+                           shell, G_CONNECT_DEFAULT);
+
+  webkit_user_content_manager_register_script_message_handler (ucm,
                                                                "autofillAskUser",
                                                                priv->guid);
   g_signal_connect_object (ucm, "script-message-received::autofillAskUser",
@@ -1453,6 +1542,12 @@ ephy_embed_shell_unregister_ucm (EphyEmbedShell           *shell,
                                                                  priv->guid);
   webkit_user_content_manager_unregister_script_message_handler (ucm,
                                                                  "passwordManagerRequestSave",
+                                                                 priv->guid);
+  webkit_user_content_manager_unregister_script_message_handler (ucm,
+                                                                 "passwordManagerShowMenu",
+                                                                 priv->guid);
+  webkit_user_content_manager_unregister_script_message_handler (ucm,
+                                                                 "passwordManagerShowGenerate",
                                                                  priv->guid);
   webkit_user_content_manager_unregister_script_message_handler (ucm,
                                                                  "autofillAskUser",
