@@ -102,19 +102,26 @@ get_website_data_manager (void)
 }
 
 G_GNUC_BEGIN_IGNORE_DEPRECATIONS
+static gboolean any_item_checked (ClearDataView *self);
+
 static void
 website_data_fetched_cb (WebKitWebsiteDataManager *manager,
                          GAsyncResult             *result,
-                         ClearDataView            *clear_data_view)
+                         GWeakRef                 *view_ref)
 {
+  g_autoptr (ClearDataView) clear_data_view = g_weak_ref_get (view_ref);
   GList *data_list;
   GtkTreeStore *treestore;
-  GError *error = NULL;
+  g_autoptr (GError) error = NULL;
   int active_items;
 
+  g_weak_ref_clear (view_ref);
+  g_free (view_ref);
+
   data_list = webkit_website_data_manager_fetch_finish (manager, result, &error);
-  if (g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
-    g_error_free (error);
+  if (!clear_data_view || !clear_data_view->cancellable ||
+      g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
+    g_list_free_full (data_list, (GDestroyNotify)webkit_website_data_unref);
     return;
   }
 
@@ -123,8 +130,12 @@ website_data_fetched_cb (WebKitWebsiteDataManager *manager,
   if (!data_list) {
     ephy_data_view_set_has_data (clear_data_view->data_view, FALSE);
 
-    if (error)
-      g_error_free (error);
+    ephy_data_view_set_can_clear (clear_data_view->data_view, FALSE);
+    if (error) {
+      AdwToastOverlay *overlay = ephy_data_view_get_toast_overlay (clear_data_view->data_view);
+
+      adw_toast_overlay_add_toast (overlay, adw_toast_new (_("Could not load website data")));
+    }
     return;
   }
 
@@ -153,7 +164,7 @@ website_data_fetched_cb (WebKitWebsiteDataManager *manager,
                                          TYPE_COLUMN, data_entries[i].type,
                                          ACTIVE_COLUMN, active_items & data_entries[i].id,
                                          NAME_COLUMN, webkit_website_data_get_name (data),
-                                         DATA_COLUMN, webkit_website_data_ref (data),
+                                         DATA_COLUMN, data,
                                          SENSITIVE_COLUMN, TRUE,
                                          -1);
       empty = FALSE;
@@ -164,6 +175,22 @@ website_data_fetched_cb (WebKitWebsiteDataManager *manager,
   }
 
   g_list_free_full (data_list, (GDestroyNotify)webkit_website_data_unref);
+  ephy_data_view_set_can_clear (clear_data_view->data_view, any_item_checked (clear_data_view));
+}
+
+static void
+reload_website_data (ClearDataView *self)
+{
+  GWeakRef *view_ref = g_new0 (GWeakRef, 1);
+
+  g_weak_ref_init (view_ref, self);
+  ephy_data_view_set_can_clear (self->data_view, FALSE);
+  ephy_data_view_set_is_loading (self->data_view, TRUE);
+  gtk_tree_store_clear (GTK_TREE_STORE (self->treestore));
+  webkit_website_data_manager_fetch (get_website_data_manager (),
+                                     PERSISTENT_DATA_TYPES, self->cancellable,
+                                     (GAsyncReadyCallback)website_data_fetched_cb,
+                                     view_ref);
 }
 
 static gboolean
@@ -173,8 +200,74 @@ all_children_visible (GtkTreeModel       *model,
 {
   GtkTreeIter filter_iter;
 
-  gtk_tree_model_filter_convert_child_iter_to_iter (filter, &filter_iter, child_iter);
+  if (!gtk_tree_model_filter_convert_child_iter_to_iter (filter, &filter_iter, child_iter))
+    return FALSE;
+
   return gtk_tree_model_iter_n_children (model, child_iter) == gtk_tree_model_iter_n_children (GTK_TREE_MODEL (filter), &filter_iter);
+}
+
+typedef struct {
+  GWeakRef view;
+  guint pending;
+  gboolean failed;
+} ClearDataBatch;
+
+typedef struct {
+  ClearDataBatch *batch;
+  GList *data;
+} ClearDataRemoval;
+
+static void
+clear_data_batch_complete (ClearDataBatch *batch)
+{
+  g_autoptr (ClearDataView) self = NULL;
+
+  if (--batch->pending != 0)
+    return;
+
+  self = g_weak_ref_get (&batch->view);
+  if (self && self->cancellable && !g_cancellable_is_cancelled (self->cancellable)) {
+    AdwToastOverlay *overlay = ephy_data_view_get_toast_overlay (self->data_view);
+
+    adw_toast_overlay_add_toast (overlay, adw_toast_new (batch->failed ?
+                                                       _("Some website data could not be cleared") :
+                                                       _("Data cleared")));
+    reload_website_data (self);
+  }
+
+  g_weak_ref_clear (&batch->view);
+  g_free (batch);
+}
+
+static void
+clear_data_ready_cb (GObject      *source,
+                     GAsyncResult *result,
+                     gpointer      user_data)
+{
+  ClearDataBatch *batch = user_data;
+  g_autoptr (GError) error = NULL;
+
+  if (!webkit_website_data_manager_clear_finish (WEBKIT_WEBSITE_DATA_MANAGER (source), result, &error))
+    batch->failed = TRUE;
+
+  clear_data_batch_complete (batch);
+}
+
+static void
+remove_data_ready_cb (GObject      *source,
+                      GAsyncResult *result,
+                      gpointer      user_data)
+{
+  ClearDataRemoval *removal = user_data;
+  ClearDataBatch *batch = removal->batch;
+  g_autoptr (GError) error = NULL;
+
+  if (!webkit_website_data_manager_remove_finish (WEBKIT_WEBSITE_DATA_MANAGER (source), result, &error))
+    batch->failed = TRUE;
+
+  g_list_free_full (removal->data, (GDestroyNotify)webkit_website_data_unref);
+  g_free (removal);
+  clear_data_batch_complete (batch);
 }
 
 static gboolean
@@ -182,17 +275,27 @@ on_clear_button_clicked (ClearDataView *clear_data_view)
 {
   GtkTreeIter top_iter;
   WebKitWebsiteDataTypes types_to_clear = 0;
-  GList *data_to_remove = NULL;
-  WebKitWebsiteDataTypes types_to_remove = 0;
+  WebKitWebsiteDataManager *manager;
+  ClearDataBatch *batch;
 
-  if (!gtk_tree_model_get_iter_first (clear_data_view->treestore, &top_iter)
-      || !ephy_data_view_get_has_data (clear_data_view->data_view))
+  if (ephy_data_view_get_is_loading (clear_data_view->data_view) ||
+      !gtk_tree_model_get_iter_first (clear_data_view->treestore, &top_iter) ||
+      !ephy_data_view_get_has_data (clear_data_view->data_view))
     return GDK_EVENT_PROPAGATE;
+
+  manager = get_website_data_manager ();
+  batch = g_new0 (ClearDataBatch, 1);
+  g_weak_ref_init (&batch->view, clear_data_view);
+  /* Keep the batch alive while we queue the individual operations. */
+  batch->pending = 1;
+  ephy_data_view_set_can_clear (clear_data_view->data_view, FALSE);
+  ephy_data_view_set_is_loading (clear_data_view->data_view, TRUE);
 
   do {
     guint type;
     gboolean active;
     GtkTreeIter child_iter;
+    GList *data_to_remove = NULL;
 
     gtk_tree_model_get (clear_data_view->treestore, &top_iter,
                         TYPE_COLUMN, &type,
@@ -201,8 +304,6 @@ on_clear_button_clicked (ClearDataView *clear_data_view)
     if (active && all_children_visible (clear_data_view->treestore, &top_iter, clear_data_view->treemodelfilter)) {
       types_to_clear |= type;
     } else if (gtk_tree_model_iter_children (clear_data_view->treestore, &child_iter, &top_iter)) {
-      gboolean empty = TRUE;
-
       do {
         WebKitWebsiteData *data;
         GtkTreeIter filter_iter;
@@ -213,48 +314,41 @@ on_clear_button_clicked (ClearDataView *clear_data_view)
                               DATA_COLUMN, &data,
                               -1);
 
-          if (active) {
+          if (active)
             data_to_remove = g_list_prepend (data_to_remove, data);
-            empty = FALSE;
-          } else
+          else
             webkit_website_data_unref (data);
         }
       } while (gtk_tree_model_iter_next (clear_data_view->treestore, &child_iter));
+    }
 
-      if (!empty)
-        types_to_remove |= type;
+    /* Each partial selection applies to one data type only. */
+    if (data_to_remove) {
+      ClearDataRemoval *removal = g_new0 (ClearDataRemoval, 1);
+
+      removal->batch = batch;
+      removal->data = data_to_remove;
+      batch->pending++;
+      /* Closing the page must not cancel a deletion the user requested. */
+      webkit_website_data_manager_remove (manager, type, removal->data,
+                                          NULL, remove_data_ready_cb, removal);
     }
   } while (gtk_tree_model_iter_next (clear_data_view->treestore, &top_iter));
 
   if (types_to_clear) {
-    webkit_website_data_manager_clear (get_website_data_manager (),
-                                       types_to_clear, 0,
-                                       NULL, NULL, NULL);
+    batch->pending++;
+    webkit_website_data_manager_clear (manager, types_to_clear, 0,
+                                       NULL, clear_data_ready_cb, batch);
   }
 
-  if (types_to_remove) {
-    webkit_website_data_manager_remove (get_website_data_manager (),
-                                        types_to_remove, data_to_remove,
-                                        NULL, NULL, NULL);
+  if (batch->pending == 1) {
+    g_weak_ref_clear (&batch->view);
+    g_free (batch);
+    ephy_data_view_set_is_loading (clear_data_view->data_view, FALSE);
+    ephy_data_view_set_can_clear (clear_data_view->data_view, any_item_checked (clear_data_view));
+  } else {
+    clear_data_batch_complete (batch);
   }
-
-  if (types_to_clear || types_to_remove) {
-    AdwToastOverlay *toast_overlay = ephy_data_view_get_toast_overlay (clear_data_view->data_view);
-    AdwToast *toast = adw_toast_new (_("Data cleared"));
-
-    adw_toast_overlay_add_toast (toast_overlay, toast);
-  }
-
-  g_list_free_full (data_to_remove, (GDestroyNotify)webkit_website_data_unref);
-
-  /* Reload tree */
-  ephy_data_view_set_is_loading (clear_data_view->data_view, TRUE);
-  gtk_tree_store_clear (GTK_TREE_STORE (clear_data_view->treestore));
-  webkit_website_data_manager_fetch (get_website_data_manager (),
-                                     PERSISTENT_DATA_TYPES,
-                                     clear_data_view->cancellable,
-                                     (GAsyncReadyCallback)website_data_fetched_cb,
-                                     clear_data_view);
 
   return GDK_EVENT_STOP;
 }
@@ -485,14 +579,7 @@ clear_data_view_init (ClearDataView *clear_data_view)
                                           clear_data_view,
                                           NULL);
 
-  ephy_data_view_set_is_loading (clear_data_view->data_view, TRUE);
-
   clear_data_view->cancellable = g_cancellable_new ();
-
-  webkit_website_data_manager_fetch (get_website_data_manager (),
-                                     PERSISTENT_DATA_TYPES,
-                                     clear_data_view->cancellable,
-                                     (GAsyncReadyCallback)website_data_fetched_cb,
-                                     clear_data_view);
+  reload_website_data (clear_data_view);
 }
 G_GNUC_END_IGNORE_DEPRECATIONS

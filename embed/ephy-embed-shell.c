@@ -777,6 +777,21 @@ initialize_notification_permissions (WebKitWebContext *web_context,
   webkit_web_context_initialize_notification_permissions (web_context, permitted_origins, denied_origins);
 }
 
+/* Cookie acceptance is a network-session preference, independent of views. */
+static void
+website_data_storage_changed_cb (GSettings      *settings,
+                                 const char     *key,
+                                 EphyEmbedShell *shell)
+{
+  EphyEmbedShellPrivate *priv = ephy_embed_shell_get_instance_private (shell);
+  WebKitCookieManager *manager = webkit_network_session_get_cookie_manager (priv->network_session);
+
+  webkit_cookie_manager_set_accept_policy (manager,
+                                          g_settings_get_boolean (settings, key) ?
+                                          WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS :
+                                          WEBKIT_COOKIE_POLICY_ACCEPT_NEVER);
+}
+
 static void
 ephy_embed_shell_create_network_session_if_needed (EphyEmbedShell *shell)
 {
@@ -794,6 +809,11 @@ ephy_embed_shell_create_network_session_if_needed (EphyEmbedShell *shell)
   webkit_network_session_set_itp_enabled (priv->network_session,
                                           g_settings_get_boolean (EPHY_SETTINGS_WEB,
                                                                   EPHY_PREFS_WEB_ENABLE_ITP));
+
+  g_signal_connect_object (EPHY_SETTINGS_WEB, "changed::" EPHY_PREFS_WEB_ENABLE_WEBSITE_DATA_STORAGE,
+                           G_CALLBACK (website_data_storage_changed_cb), shell, G_CONNECT_DEFAULT);
+  website_data_storage_changed_cb (EPHY_SETTINGS_WEB,
+                                   EPHY_PREFS_WEB_ENABLE_WEBSITE_DATA_STORAGE, shell);
 }
 
 static void
@@ -902,6 +922,17 @@ ephy_embed_shell_startup (GApplication *application)
 
   priv->password_manager = ephy_password_manager_new ();
 
+  /* Store cookies in moz-compatible SQLite format */
+  if (!webkit_network_session_is_ephemeral (priv->network_session)) {
+    cookie_manager = webkit_network_session_get_cookie_manager (priv->network_session);
+    filename = g_build_filename (ephy_profile_dir (), "cookies.sqlite", NULL);
+    webkit_cookie_manager_set_persistent_storage (cookie_manager, filename,
+                                                  WEBKIT_COOKIE_PERSISTENT_STORAGE_SQLITE);
+  }
+
+  website_data_storage_changed_cb (EPHY_SETTINGS_WEB,
+                                   EPHY_PREFS_WEB_ENABLE_WEBSITE_DATA_STORAGE, shell);
+
   data_manager = webkit_network_session_get_website_data_manager (priv->network_session);
   webkit_website_data_manager_set_favicons_enabled (data_manager, TRUE);
 
@@ -939,14 +970,6 @@ ephy_embed_shell_startup (GApplication *application)
                                                          "ephy-resource");
 
   ephy_ruffle_web_register (priv->web_context);
-
-  /* Store cookies in moz-compatible SQLite format */
-  if (!webkit_network_session_is_ephemeral (priv->network_session)) {
-    cookie_manager = webkit_network_session_get_cookie_manager (priv->network_session);
-    filename = g_build_filename (ephy_profile_dir (), "cookies.sqlite", NULL);
-    webkit_cookie_manager_set_persistent_storage (cookie_manager, filename,
-                                                  WEBKIT_COOKIE_PERSISTENT_STORAGE_SQLITE);
-  }
 
   g_signal_connect_object (priv->network_session, "download-started",
                            G_CALLBACK (download_started_cb), shell, G_CONNECT_SWAPPED);

@@ -30,6 +30,55 @@
 #include "ephy-embed.h"
 #include "ephy-file-helpers.h"
 #include "ephy-shell.h"
+#include "ephy-settings.h"
+
+typedef struct {
+  GMainLoop *loop;
+  WebKitCookieAcceptPolicy expected;
+  gboolean done;
+} CookiePolicyCheck;
+
+static void
+cookie_policy_ready_cb (GObject      *source,
+                        GAsyncResult *result,
+                        gpointer      user_data)
+{
+  CookiePolicyCheck *check = user_data;
+  g_autoptr (GError) error = NULL;
+  WebKitCookieAcceptPolicy policy;
+
+  policy = webkit_cookie_manager_get_accept_policy_finish (WEBKIT_COOKIE_MANAGER (source), result, &error);
+  g_assert_no_error (error);
+  g_assert_cmpint (policy, ==, check->expected);
+  check->done = TRUE;
+  g_main_loop_quit (check->loop);
+}
+
+static void
+assert_cookie_policy (WebKitCookieManager      *manager,
+                      WebKitCookieAcceptPolicy  expected)
+{
+  g_autoptr (GMainLoop) loop = g_main_loop_new (NULL, FALSE);
+  CookiePolicyCheck check = { loop, expected, FALSE };
+
+  webkit_cookie_manager_get_accept_policy (manager, NULL, cookie_policy_ready_cb, &check);
+  if (!check.done)
+    g_main_loop_run (loop);
+}
+
+static void
+test_ephy_embed_shell_cookie_policy (void)
+{
+  WebKitNetworkSession *session = ephy_embed_shell_get_network_session (ephy_embed_shell_get_default ());
+  WebKitCookieManager *manager = webkit_network_session_get_cookie_manager (session);
+
+  assert_cookie_policy (manager, WEBKIT_COOKIE_POLICY_ACCEPT_NEVER);
+  g_settings_set_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_WEBSITE_DATA_STORAGE, TRUE);
+  assert_cookie_policy (manager, WEBKIT_COOKIE_POLICY_ACCEPT_ALWAYS);
+  g_settings_set_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_WEBSITE_DATA_STORAGE, FALSE);
+  assert_cookie_policy (manager, WEBKIT_COOKIE_POLICY_ACCEPT_NEVER);
+  g_settings_reset (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_WEBSITE_DATA_STORAGE);
+}
 
 static void
 web_view_created_cb (EphyEmbedShell *shell,
@@ -71,9 +120,12 @@ main (int   argc,
     return -1;
   }
 
+  g_settings_set_boolean (EPHY_SETTINGS_WEB, EPHY_PREFS_WEB_ENABLE_WEBSITE_DATA_STORAGE, FALSE);
   _ephy_shell_create_instance (EPHY_EMBED_SHELL_MODE_TEST);
   g_application_register (G_APPLICATION (ephy_embed_shell_get_default ()), NULL, NULL);
 
+  g_test_add_func ("/embed/ephy-embed-shell/cookie-policy",
+                   test_ephy_embed_shell_cookie_policy);
   g_test_add_func ("/embed/ephy-embed-shell/web-view-created",
                    test_ephy_embed_shell_web_view_created);
 
