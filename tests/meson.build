@@ -43,6 +43,15 @@ if get_option('unit_tests').allowed()
   )
   test('Gopher protocol parsing', gopher_test)
 
+  tftp_test = executable('test-ephy-tftp',
+    'ephy-tftp-test.c',
+    '../lib/ephy-tftp.c',
+    include_directories: include_directories('../lib'),
+    dependencies: [gio_dep, glib_dep],
+    c_args: test_cargs,
+  )
+  test('TFTP URI parsing', tftp_test)
+
   ruffle_test = executable('test-ephy-ruffle',
     'ephy-ruffle-test.c',
     '../lib/ephy-ruffle.c',

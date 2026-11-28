@@ -41,6 +41,7 @@ libephymisc_sources = [
   'ephy-string.c',
   'ephy-suggestion.c',
   'ephy-sync-utils.c',
+  'ephy-tftp.c',
   'ephy-time-helpers.c',
   'ephy-uri-helpers.c',
   'ephy-user-agent.c',
