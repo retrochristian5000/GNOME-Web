@@ -105,6 +105,14 @@ if get_option('unit_tests').allowed()
   )
   test('Ruffle integration', ruffle_test)
 
+  activex_test = executable('test-ephy-activex',
+    'ephy-activex-test.c',
+    '../lib/ephy-activex.c',
+    include_directories: include_directories('../lib'),
+    c_args: ['-UNDEBUG'],
+  )
+  test('ActiveX compatibility classification (offline)', activex_test)
+
   libephytestutils = static_library('ephytestutils',
     'ephy-test-utils.c',
     dependencies: ephymain_dep,

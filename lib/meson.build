@@ -15,6 +15,7 @@ libephymisc_sources = [
   'contrib/dzl-fuzzy-mutable-index.c',
   'contrib/dzl-suggestion.c',
   'contrib/gnome-languages.c',
+  'ephy-activex.c',
   'ephy-cdf.c',
   'ephy-curl.c',
   'ephy-debug.c',
