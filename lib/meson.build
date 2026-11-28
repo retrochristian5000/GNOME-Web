@@ -23,6 +23,7 @@ libephymisc_sources = [
   'ephy-file-dialog-utils.c',
   'ephy-file-helpers.c',
   'ephy-ftp.c',
+  'ephy-git.c',
   'ephy-gopher.c',
   'ephy-json-utils.c',
   'ephy-langs.c',

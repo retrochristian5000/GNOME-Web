@@ -43,6 +43,15 @@ if get_option('unit_tests').allowed()
   )
   test('Gopher protocol parsing', gopher_test)
 
+  git_test = executable('test-ephy-git',
+    'ephy-git-test.c',
+    '../lib/ephy-git.c',
+    include_directories: include_directories('../lib'),
+    dependencies: [gio_dep, glib_dep],
+    c_args: test_cargs,
+  )
+  test('Git URI parsing (offline)', git_test)
+
   tftp_test = executable('test-ephy-tftp',
     'ephy-tftp-test.c',
     '../lib/ephy-tftp.c',
