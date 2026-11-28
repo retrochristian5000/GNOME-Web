@@ -98,7 +98,44 @@ gtk_unix_print_dep = dependency('gtk4-unix-print', version: gtk_requirement)
 hogweed_dep = dependency('hogweed', version: nettle_requirement)
 iso_codes_dep = dependency('iso-codes', version: '>= 0.35')
 json_glib_dep = dependency('json-glib-1.0', version: '>= 1.6')
-libarchive_dep = dependency('libarchive')
+cc = meson.get_compiler('c')
+
+# Keep package metadata first, including Homebrew's keg-only libarchive.
+libarchive_dep = dependency('libarchive', required: false)
+if not libarchive_dep.found() and host_machine.system() == 'darwin'
+  # The macOS SDK can provide libarchive without a pkg-config file.
+  libarchive_dep = cc.find_library('archive', required: false)
+endif
+if not libarchive_dep.found()
+  error('libarchive is required to read ZIP/XPI browser extensions')
+endif
+
+# Compile and link against the actual API used by ephy-web-extension.c.
+# Do not execute the probe; it must also work for cross builds.
+libarchive_test = '''
+#include <archive.h>
+#include <archive_entry.h>
+
+int main(void)
+{
+  struct archive *reader = archive_read_new();
+  struct archive_entry *entry = 0;
+  char buffer[1];
+
+  archive_read_support_format_zip(reader);
+  archive_read_open_filename(reader, "", 10240);
+  archive_read_next_header(reader, &entry);
+  archive_entry_size(entry);
+  archive_entry_pathname(entry);
+  archive_read_data(reader, buffer, sizeof(buffer));
+  archive_error_string(reader);
+  return archive_read_free(reader);
+}
+'''
+if not cc.links(libarchive_test, dependencies: libarchive_dep,
+                name: 'libarchive ZIP/XPI reader API')
+  error('libarchive headers and library must provide the ZIP/XPI reader API; check the target architecture and dependency search paths')
+endif
 libadwaita_dep = dependency('libadwaita-1', version: libadwaita_requirement)
 libsecret_dep = dependency('libsecret-1', version: '>= 0.19.0')
 libsoup_dep = dependency('libsoup-3.0', version: '>= 2.99.4')
@@ -132,8 +169,6 @@ config_h = declare_dependency(
     output: 'config.h'
   )
 )
-
-cc = meson.get_compiler('c')
 
 mini_gmp_test = '''
 #include <nettle/bignum.h>
