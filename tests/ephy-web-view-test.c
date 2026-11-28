@@ -50,6 +50,32 @@ server_callback (SoupServer        *server,
   SoupMessageHeaders *response_headers;
   SoupMessageBody *response_body;
 
+  if (g_str_has_prefix (path, "/legacy-web/jscript/")) {
+    const char *name = path + strlen ("/legacy-web/jscript/");
+    const char *mime_type = NULL;
+    g_autofree char *filename = NULL;
+    g_autofree char *contents = NULL;
+    gsize length = 0;
+
+    if (strcmp (name, "index.html") == 0)
+      mime_type = "text/html";
+    else if (strcmp (name, "external.js") == 0 ||
+             strcmp (name, "external-type.js") == 0)
+      mime_type = "text/jscript";
+
+    if (mime_type)
+      filename = g_test_build_filename (G_TEST_DIST, "legacy-web", "jscript", name, NULL);
+
+    if (!filename || !g_file_get_contents (filename, &contents, &length, NULL)) {
+      soup_server_message_set_status (msg, SOUP_STATUS_NOT_FOUND, NULL);
+      return;
+    }
+
+    soup_server_message_set_status (msg, SOUP_STATUS_OK, NULL);
+    soup_server_message_set_response (msg, mime_type, SOUP_MEMORY_COPY, contents, length);
+    return;
+  }
+
   response_headers = soup_server_message_get_response_headers (msg);
   response_body = soup_server_message_get_response_body (msg);
 
@@ -186,6 +212,60 @@ test_ephy_web_view_load_url (void)
     g_main_loop_unref (loop);
     g_object_unref (window);
   }
+}
+
+static void
+legacy_jscript_evaluated_cb (GObject      *object,
+                             GAsyncResult *result,
+                             gpointer      user_data)
+{
+  GMainLoop *loop = user_data;
+  g_autoptr (GError) error = NULL;
+  g_autoptr (JSCValue) value = webkit_web_view_evaluate_javascript_finish (WEBKIT_WEB_VIEW (object), result, &error);
+  g_autofree char *title = NULL;
+
+  g_assert_no_error (error);
+  g_assert_nonnull (value);
+  title = jsc_value_to_string (value);
+  g_assert_cmpstr (title, ==, "JScript compatibility: PASS");
+  g_main_loop_quit (loop);
+}
+
+static void
+legacy_jscript_loaded_cb (WebKitWebView   *view,
+                          WebKitLoadEvent  event,
+                          GMainLoop       *loop)
+{
+  if (event != WEBKIT_LOAD_FINISHED)
+    return;
+
+  g_signal_handlers_disconnect_by_func (view, legacy_jscript_loaded_cb, loop);
+  webkit_web_view_evaluate_javascript (view, "document.title", -1, NULL, NULL,
+                                       NULL, legacy_jscript_evaluated_cb, loop);
+}
+
+static gboolean
+legacy_jscript_timeout_cb (gpointer user_data)
+{
+  g_error ("JScript compatibility test timed out");
+  return G_SOURCE_REMOVE;
+}
+
+static void
+test_ephy_web_view_legacy_jscript (void)
+{
+  g_autoptr (GMainLoop) loop = g_main_loop_new (NULL, FALSE);
+  GtkWidget *window = gtk_window_new ();
+  EphyWebView *view = EPHY_WEB_VIEW (ephy_web_view_new ());
+  guint timeout_id;
+
+  gtk_window_set_child (GTK_WINDOW (window), GTK_WIDGET (view));
+  g_signal_connect (view, "load-changed", G_CALLBACK (legacy_jscript_loaded_cb), loop);
+  timeout_id = g_timeout_add_seconds (20, legacy_jscript_timeout_cb, NULL);
+  ephy_web_view_load_url (view, "http://127.0.0.1:12321/legacy-web/jscript/index.html");
+  g_main_loop_run (loop);
+  g_source_remove (timeout_id);
+  gtk_window_destroy (GTK_WINDOW (window));
 }
 
 typedef struct {
@@ -499,8 +579,14 @@ main (int   argc,
 
   server = soup_server_new (NULL, NULL);
   soup_server_add_handler (server, NULL, server_callback, NULL, NULL);
-  soup_server_listen_local (server, SERVER_PORT,
-                            SOUP_SERVER_LISTEN_IPV4_ONLY, NULL);
+  {
+    g_autoptr (GError) error = NULL;
+    gboolean listening = soup_server_listen_local (server, SERVER_PORT,
+                                                     SOUP_SERVER_LISTEN_IPV4_ONLY, &error);
+
+    g_assert_no_error (error);
+    g_assert_true (listening);
+  }
 
   g_test_add_func ("/embed/ephy-web-view/non_search_regex",
                    test_ephy_web_view_non_search_regex);
@@ -510,6 +596,9 @@ main (int   argc,
 
   g_test_add_func ("/embed/ephy-web-view/load_url",
                    test_ephy_web_view_load_url);
+
+  g_test_add_func ("/embed/ephy-web-view/legacy-jscript",
+                   test_ephy_web_view_legacy_jscript);
 
   g_test_add_func ("/embed/ephy-web-view/provisional_load_failure_updates_back_forward_list",
                    test_ephy_web_view_provisional_load_failure_updates_back_forward_list);

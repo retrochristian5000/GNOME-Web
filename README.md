@@ -54,6 +54,11 @@ channels, titles, abstracts and HTTP(S) links. Relative links require an
 absolute HTTP(S) SELF URL. It does not automatically fetch channel content,
 load external DTDs, run embedded scripts or schedule subscriptions.
 
+Historical JScript script declarations are covered by the Web view regression
+suite in tests/legacy-web/jscript. The test checks the shared ECMAScript
+behavior and legacy text/jscript media type; it does not emulate Microsoft
+conditional compilation or Windows COM objects.
+
 Firefox Sync requires matching Nettle and Hogweed releases. Meson checks the
 installed GMP configuration and links a public-key API probe before building.
 Normal GMP builds are preferred; mini-GMP is not ABI-compatible with them.

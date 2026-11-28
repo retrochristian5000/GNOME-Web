@@ -1,0 +1,50 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>JScript compatibility: pending</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<script type="text/javascript">
+var results = {};
+</script>
+<script language="JScript">
+results.language = true;
+</script>
+<script type="text/jscript">
+results.type = true;
+results.es3 = (new Array(1, 2, 3).join(",") == "1,2,3" &&
+               /legacy/i.test("Legacy") &&
+               escape("a b") == "a%20b" &&
+               unescape("%41") == "A");
+</script>
+<script language="JScript" src="external.js"></script>
+<script type="text/jscript" src="external-type.js"></script>
+<script type="application/x-unknown-legacy-script">
+results.unknownType = true;
+</script>
+<script type="text/javascript">
+/*@cc_on
+results.microsoftConditionalCompilation = true;
+@*/
+</script>
+</head>
+<body>
+<h1>JScript compatibility regression</h1>
+<p id="result">Pending</p>
+<script type="text/javascript">
+var passed = results.language === true &&
+             results.type === true &&
+             results.es3 === true &&
+             results.external === true &&
+             results.externalType === true &&
+             typeof results.unknownType == "undefined" &&
+             typeof results.microsoftConditionalCompilation == "undefined";
+document.title = passed ? "JScript compatibility: PASS" : "JScript compatibility: FAIL";
+document.getElementById("result").appendChild(document.createTextNode(
+  " — language=" + results.language + ", type=" + results.type +
+  ", ES3=" + results.es3 + ", external=" + results.external +
+  ", external type=" + results.externalType +
+  ", unknown type=" + results.unknownType +
+  ", Microsoft conditional compilation=" + results.microsoftConditionalCompilation));
+</script>
+</body>
+</html>
