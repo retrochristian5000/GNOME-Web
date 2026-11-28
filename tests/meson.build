@@ -61,6 +61,15 @@ if get_option('unit_tests').allowed()
   )
   test('SSH and SFTP URI parsing', ssh_test)
 
+  ftp_test = executable('test-ephy-ftp',
+    'ephy-ftp-test.c',
+    '../lib/ephy-ftp.c',
+    include_directories: include_directories('../lib'),
+    dependencies: [gio_dep, glib_dep],
+    c_args: test_cargs,
+  )
+  test('FTP and FTPS URI parsing', ftp_test)
+
   ruffle_test = executable('test-ephy-ruffle',
     'ephy-ruffle-test.c',
     '../lib/ephy-ruffle.c',
