@@ -48,6 +48,9 @@ dependencies will be provided by the manifest.
 
 Epiphany uses the [Meson build system](https://mesonbuild.com/) (1.3 or newer).
 A compiler supporting GNU C23, or its GNU C2x draft spelling, is required.
+Firefox Sync requires matching Nettle and Hogweed releases. Meson checks the
+installed GMP configuration and links a public-key API probe before building.
+Normal GMP builds are preferred; mini-GMP is not ABI-compatible with them.
 You can build
 Epiphany the same way you would any software that uses Meson. For example:
 

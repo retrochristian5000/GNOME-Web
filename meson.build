@@ -103,7 +103,6 @@ granite_dep = dependency('granite-7', version: '>= 7.2.0', required: get_option(
 gsettings_desktop_schemas = dependency('gsettings-desktop-schemas')
 gstreamer_dep = dependency('gstreamer-1.0')
 gtk_dep = dependency('gtk4', version: gtk_requirement)
-hogweed_dep = dependency('hogweed', version: nettle_requirement)
 json_glib_dep = dependency('json-glib-1.0', version: '>= 1.6')
 cc = meson.get_compiler('c')
 
@@ -148,7 +147,12 @@ libadwaita_dep = dependency('libadwaita-1', version: libadwaita_requirement)
 libsecret_dep = dependency('libsecret-1', version: '>= 0.19.0')
 libsoup_dep = dependency('libsoup-3.0', version: '>= 2.99.4')
 libxml_dep = dependency('libxml-2.0', version: '>= 2.6.12')
-nettle_dep = dependency('nettle', version: nettle_requirement)
+# Hogweed and Nettle are built from the same source release.
+nettle_dep = dependency('nettle', version: nettle_requirement, method: 'pkg-config')
+hogweed_dep = dependency('hogweed', version: nettle_requirement, method: 'pkg-config')
+if not hogweed_dep.version().version_compare('==' + nettle_dep.version())
+  error('Hogweed and Nettle must come from the same release; check pkg-config search paths')
+endif
 # XDG portals require a desktop portal service, not just the client library.
 have_xdg_portal = host_machine.system() != 'darwin'
 conf.set10('HAVE_XDG_PORTAL', have_xdg_portal)
@@ -193,22 +197,74 @@ config_h = declare_dependency(
   )
 )
 
-mini_gmp_test = '''
-#include <nettle/bignum.h>
+# Read the installed Nettle configuration before including bignum.h,
+# which itself may require the external GMP headers.
+nettle_deps = [hogweed_dep, nettle_dep]
+mini_gmp = cc.get_define('NETTLE_USE_MINI_GMP',
+  prefix: '#include <nettle/version.h>',
+  dependencies: nettle_deps
+)
 
-#if !NETTLE_USE_MINI_GMP
-# error "gmp is needed"
-#endif
-'''
-
-if cc.compiles(mini_gmp_test, dependencies: hogweed_dep)
-  gmp_dep = dependency('', required: false)
-else
+if mini_gmp == '1'
+  message('Hogweed uses mini-GMP; no external GMP library will be linked')
+elif mini_gmp == '0'
   gmp_dep = dependency('gmp', method: 'pkg-config', required: false)
   if not gmp_dep.found()
-    gmp_dep = cc.find_library('gmp')
+    gmp_dep = cc.find_library('gmp', required: false)
   endif
+  if not gmp_dep.found()
+    error('Hogweed requires external GMP; install matching GMP headers and library')
+  endif
+  nettle_deps += [gmp_dep]
+else
+  error('Cannot determine Hogweed GMP configuration from nettle/version.h')
 endif
+
+# Validate the public-key and large-integer interfaces used by Sync.
+# Compile and link only; this probe does not generate or use keys at runtime.
+hogweed_test = '''
+#include <nettle/version.h>
+#include <nettle/bignum.h>
+#include <nettle/rsa.h>
+#include <nettle/ecc.h>
+#include <nettle/ecc-curve.h>
+#include <nettle/sha2.h>
+
+int main(void)
+{
+  struct rsa_public_key public_key;
+  struct rsa_private_key private_key;
+  const struct ecc_curve *curve = nettle_get_secp_256r1();
+  struct ecc_point point;
+  struct ecc_scalar scalar;
+  struct sha256_ctx hash;
+  mpz_t value;
+
+  rsa_public_key_init(&public_key);
+  rsa_private_key_init(&private_key);
+  mpz_init(value);
+  mpz_set_ui(value, 65537);
+  mpz_set(public_key.e, value);
+  ecc_scalar_init(&scalar, curve);
+  ecc_point_init(&point, curve);
+  ecc_scalar_set(&scalar, value);
+  ecc_point_mul_g(&point, &scalar);
+  sha256_init(&hash);
+  ecc_point_clear(&point);
+  ecc_scalar_clear(&scalar);
+  mpz_clear(value);
+  rsa_private_key_clear(&private_key);
+  rsa_public_key_clear(&public_key);
+  return 0;
+}
+'''
+if not cc.links(hogweed_test, dependencies: nettle_deps,
+                args: cc.get_supported_arguments('-Werror=implicit-function-declaration'),
+                name: 'Hogweed, Nettle and GMP Sync API')
+  error('Cannot link Hogweed, Nettle and the configured GMP backend together; check headers, library versions and target architecture')
+endif
+
+sync_crypto_dep = declare_dependency(dependencies: nettle_deps)
 
 m_dep = cc.find_library('m', required: false)
 

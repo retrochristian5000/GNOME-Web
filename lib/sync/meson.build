@@ -20,12 +20,10 @@ libephysync_sources = [
 libephysync_deps = [
   ephymisc_dep,
   glib_dep,
-  gmp_dep,
-  hogweed_dep,
+  sync_crypto_dep,
   json_glib_dep,
   libsecret_dep,
   libsoup_dep,
-  nettle_dep,
 ]
 
 libephysync_includes = include_directories(
