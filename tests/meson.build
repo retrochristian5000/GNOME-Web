@@ -9,6 +9,13 @@ envs.prepend('PATH', join_paths(meson.project_build_root(), 'src'))
 test_cargs = ['-UG_DISABLE_ASSERT']
 
 if get_option('unit_tests').allowed()
+  proxy_test = executable('test-ephy-proxy',
+    'ephy-proxy-test.c',
+    dependencies: [gio_dep, glib_dep, libsoup_dep],
+    c_args: test_cargs,
+  )
+  test('Proxy resolver contract', proxy_test)
+
   cdf_test = executable('test-ephy-cdf',
     'ephy-cdf-test.c',
     '../lib/ephy-cdf.c',

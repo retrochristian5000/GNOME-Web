@@ -252,3 +252,11 @@ epiphany = executable('epiphany',
   install: true,
   install_rpath: pkglibdir
 )
+
+# Standalone diagnostic uses the same default GIO resolver as the browser.
+executable('epiphany-proxy-check',
+  'proxy/ephy-proxy-check.c',
+  dependencies: [gio_dep, glib_dep],
+  install: true,
+  install_dir: pkglibexecdir,
+)

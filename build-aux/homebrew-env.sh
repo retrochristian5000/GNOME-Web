@@ -57,9 +57,9 @@ PKG_CONFIG_PATH=$(append_dir "$PKG_CONFIG_PATH" "$prefix/share/pkgconfig")
 
 # Include relevant unlinked (keg-only) formulae without scanning every keg.
 for formula in appstream blueprint-compiler cairo desktop-file-utils docutils \
-    gettext glib gmp gobject-introspection gsettings-desktop-schemas \
+    gettext glib glib-networking gmp gobject-introspection gsettings-desktop-schemas \
     gstreamer gtk4 gdk-pixbuf gcr iso-codes itstool json-glib libadwaita \
-    libarchive libportal libsecret libsoup libxml2 libpwquality nettle \
+    libarchive libportal libproxy libsecret libsoup libxml2 libpwquality nettle \
     pkgconf sqlite webkitgtk yelp-tools; do
     root=$prefix/opt/$formula
     PATH=$(append_dir "$PATH" "$root/bin")

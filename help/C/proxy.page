@@ -15,13 +15,19 @@
 
     <include href="legal.xml" xmlns="http://www.w3.org/2001/XInclude"/>
 
-    <desc>Anonymize your web browsing by using a web proxy.</desc>
+    <desc>Configure a network proxy for web browsing.</desc>
   </info>
 
   <title>Use a proxy</title>
 
-  <p>You can use a proxy server for browsing the web. To use a web proxy when
-  browsing, you need to <link href="help:gnome-help/net-proxy">set it up in the
-  GNOME <gui>Network</gui> settings panel</link>.</p>
+  <p>Web normally uses the system proxy resolver. On GNOME, configure
+  manual proxies or a proxy auto-configuration (PAC) URL in the
+  <link href="help:gnome-help/net-proxy"><gui>Network</gui> settings panel</link>.
+  On macOS, use the network service's proxy settings; a compatible networking
+  backend is required to read and evaluate them.</p>
+
+  <p>A PAC file selects a route for each URL. Automatic proxy support depends
+  on the installed resolver and PAC evaluator. A proxy does not by itself
+  guarantee anonymity or confidentiality.</p>
 
 </page>

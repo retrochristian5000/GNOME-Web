@@ -86,6 +86,23 @@ suite in tests/legacy-web/jscript. The test checks the shared ECMAScript
 behavior and legacy text/jscript media type; it does not emulate Microsoft
 conditional compilation or Windows COM objects.
 
+### Proxy and PAC diagnostics
+
+WebKitGTK and independent libsoup sessions normally use the default GIO
+proxy resolver. Install a compatible glib-networking runtime with the
+appropriate proxy backend and PAC evaluator for your platform. On macOS,
+check that the resolver actually reads system proxy settings rather than
+just environment variables.
+
+Run `build/src/epiphany-proxy-check https://proxied.example.invalid/` to
+inspect the resolver type and ordered routes without requesting the
+destination. The resolver itself may retrieve a PAC file or perform DNS
+lookups. Use non-sensitive test URLs. The tool suppresses user information
+and raw resolver errors. A DIRECT result is not proof of successful PAC
+evaluation. The diagnostic runs in a separate process and cannot prove
+WebKit's sandboxed network process selects the same routes. See
+tests/legacy-web/pac/README.md for a controlled fixture.
+
 Firefox Sync requires matching Nettle and Hogweed releases. Meson checks the
 installed GMP configuration and links a public-key API probe before building.
 Normal GMP builds are preferred; mini-GMP is not ABI-compatible with them.
