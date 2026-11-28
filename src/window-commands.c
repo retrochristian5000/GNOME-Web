@@ -44,6 +44,7 @@
 #include "ephy-bookmarks-import.h"
 #include "ephy-bookmarks-manager.h"
 #include "ephy-cdf.h"
+#include "ephy-ruffle.h"
 #include "ephy-debug.h"
 #include "ephy-embed-container.h"
 #include "ephy-embed-prefs.h"
@@ -1532,6 +1533,18 @@ open_dialog_cb (GtkFileDialog *dialog,
 
   if (!file)
     return;
+
+#if HAVE_RUFFLE
+  if (ephy_ruffle_is_swf (file)) {
+    if (!ephy_ruffle_open_file (file, &error)) {
+      AdwDialog *alert = adw_alert_dialog_new (_("Could Not Open Flash Movie"), error->message);
+
+      adw_alert_dialog_add_response (ADW_ALERT_DIALOG (alert), "close", _("_Close"));
+      adw_dialog_present (alert, GTK_WIDGET (window));
+    }
+    return;
+  }
+#endif
 
   if (ephy_cdf_is_file (file)) {
     g_autofree char *html = ephy_cdf_load_file (file, &error);

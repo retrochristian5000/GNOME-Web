@@ -67,6 +67,16 @@ conf.set10('TECH_PREVIEW', tech_preview)
 conf.set10('CANARY', profile == 'Canary')
 conf.set_quoted('G_LOG_DOMAIN', 'epiphany')
 
+# Ruffle is a target runtime program, not a build-time compiler.
+# Auto keeps local SWF support available for installations made after build.
+# Explicit enable checks the executable in native builds; cross builds must
+# supply it on the target. Never capture the build host's executable path.
+ruffle_option = get_option('ruffle')
+if ruffle_option.enabled() and not meson.is_cross_build()
+  find_program('ruffle', 'ruffle_desktop', required: true)
+endif
+conf.set10('HAVE_RUFFLE', ruffle_option.allowed())
+
 version_array = meson.project_version().split('.')
 conf.set('EPHY_MAJOR_VERSION', version_array[0].to_int())
 if version_array[1] in ['alpha', 'beta', 'rc']

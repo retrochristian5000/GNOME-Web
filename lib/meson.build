@@ -28,6 +28,7 @@ libephymisc_sources = [
   'ephy-permissions-manager.c',
   'ephy-pixbuf-utils.c',
   'ephy-profile-utils.c',
+  'ephy-ruffle.c',
   'ephy-search-engine.c',
   'ephy-search-engine-manager.c',
   'ephy-security-levels.c',

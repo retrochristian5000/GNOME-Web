@@ -48,6 +48,20 @@ dependencies will be provided by the manifest.
 
 Epiphany uses the [Meson build system](https://mesonbuild.com/) (1.3 or newer).
 A compiler supporting GNU C23, or its GNU C2x draft spelling, is required.
+Ruffle Desktop is an optional runtime dependency for explicitly opened local
+Flash movies (.swf). Install a maintained release from https://ruffle.rs/downloads/
+or, on macOS, use `brew install --cask ruffle`. The default
+`-Druffle=auto` supports runtime discovery of ruffle or ruffle_desktop on PATH
+(and the standard macOS application bundle). Use `-Druffle=enabled` to require
+a discoverable executable at native configure time, or `-Druffle=disabled` to
+disable integration. Cross builds resolve the executable only on the target.
+Open File launches a separate player with noninteractive filesystem access
+and external website opening denied. Ruffle's own networking behavior still
+applies; this is not an OS sandbox or an offline guarantee. There is no
+automatic playback of downloaded files or embedded webpage Flash yet.
+The web player (JavaScript/Wasm) needs a separate browser integration that
+preserves page origins and content security policy.
+
 Legacy Channel Definition Format (CDF) documents can be opened locally using
 the browser's Open File command. The read-only channel viewer supports nested
 channels, titles, abstracts and HTTP(S) links. Relative links require an

@@ -33,3 +33,9 @@ option('man-pages',
   value: 'auto',
   description: 'Enable man page generation (requires rst2man)'
 )
+
+option('ruffle',
+  type: 'feature',
+  value: 'auto',
+  description: 'Enable explicit local SWF playback with Ruffle Desktop'
+)

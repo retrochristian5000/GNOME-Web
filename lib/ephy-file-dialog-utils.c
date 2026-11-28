@@ -89,6 +89,10 @@ ephy_file_dialog_add_filters (GtkFileDialog *dialog)
 
   gtk_file_filter_add_suffix (supported_filter, "cdf");
   gtk_file_filter_add_suffix (webpages_filter, "cdf");
+#if HAVE_RUFFLE
+  gtk_file_filter_add_suffix (supported_filter, "swf");
+  gtk_file_filter_add_mime_type (supported_filter, "application/x-shockwave-flash");
+#endif
 
   gtk_file_dialog_set_filters (dialog, G_LIST_MODEL (filters));
   gtk_file_dialog_set_default_filter (dialog, supported_filter);
