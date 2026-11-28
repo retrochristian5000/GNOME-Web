@@ -20,6 +20,7 @@ libephymisc_sources = [
   'ephy-favicon-helpers.c',
   'ephy-file-dialog-utils.c',
   'ephy-file-helpers.c',
+  'ephy-gopher.c',
   'ephy-json-utils.c',
   'ephy-langs.c',
   'ephy-opensearch-autodiscovery-link.c',

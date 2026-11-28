@@ -128,33 +128,26 @@ get_domain_regex (void)
 gboolean
 ephy_embed_utils_address_has_web_scheme (const char *address)
 {
-  gboolean has_web_scheme;
-  int colonpos;
+  static const char * const web_schemes[] = {
+    "http", "https", "file", "javascript", "data", "blob",
+    "about", "ephy-about", "ephy-resource", EPHY_VIEW_SOURCE_SCHEME,
+    "ephy-reader", "gopher", "inspector", "webkit"
+  };
+  const char *scheme;
 
   if (!address)
     return FALSE;
 
-  colonpos = (int)((strstr (address, ":")) - address);
-
-  if (colonpos < 0)
+  scheme = g_uri_peek_scheme (address);
+  if (!scheme)
     return FALSE;
 
-  has_web_scheme = !(g_ascii_strncasecmp (address, "http", colonpos) &&
-                     g_ascii_strncasecmp (address, "https", colonpos) &&
-                     g_ascii_strncasecmp (address, "file", colonpos) &&
-                     g_ascii_strncasecmp (address, "javascript", colonpos) &&
-                     g_ascii_strncasecmp (address, "data", colonpos) &&
-                     g_ascii_strncasecmp (address, "blob", colonpos) &&
-                     g_ascii_strncasecmp (address, "about", colonpos) &&
-                     g_ascii_strncasecmp (address, "ephy-about", colonpos) &&
-                     g_ascii_strncasecmp (address, "ephy-resource", colonpos) &&
-                     g_ascii_strncasecmp (address, EPHY_VIEW_SOURCE_SCHEME, colonpos) &&
-                     g_ascii_strncasecmp (address, "ephy-reader", colonpos) &&
-                     g_ascii_strncasecmp (address, "gopher", colonpos) &&
-                     g_ascii_strncasecmp (address, "inspector", colonpos) &&
-                     g_ascii_strncasecmp (address, "webkit", colonpos));
+  for (gsize i = 0; i < G_N_ELEMENTS (web_schemes); i++) {
+    if (g_ascii_strcasecmp (scheme, web_schemes[i]) == 0)
+      return TRUE;
+  }
 
-  return has_web_scheme;
+  return FALSE;
 }
 
 gboolean

@@ -34,6 +34,15 @@ if get_option('unit_tests').allowed()
   )
   test('CDF parser', cdf_test)
 
+  gopher_test = executable('test-ephy-gopher',
+    'ephy-gopher-test.c',
+    '../lib/ephy-gopher.c',
+    include_directories: include_directories('../lib'),
+    dependencies: [gio_dep, glib_dep],
+    c_args: test_cargs,
+  )
+  test('Gopher protocol parsing', gopher_test)
+
   ruffle_test = executable('test-ephy-ruffle',
     'ephy-ruffle-test.c',
     '../lib/ephy-ruffle.c',

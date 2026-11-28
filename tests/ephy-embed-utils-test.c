@@ -55,6 +55,7 @@ static const SchemeTest tests_has_scheme[] = {
   { "about", "about:epiphany" },
   { "ephy-about", "ephy-about:memory" },
   { "gopher", "gopher://gnome.org/" },
+  { "gopher_caps", "GOPHER://gnome.org/" },
 };
 
 static const SchemeTest tests_no_scheme[] = {
@@ -70,6 +71,10 @@ static const SchemeTest tests_no_scheme[] = {
   { "double_double_colon", "epip:hany-about:memory" },
   { "slashes_first", "//localhost:8080" },
   { "unknown_scheme", "pher://gnome.org/" },
+  { "partial_gopher_scheme", "goph://gnome.org/" },
+  { "partial_http_scheme", "htt://gnome.org/" },
+  { "partial_file_scheme", "fil:///tmp/example" },
+  { "empty_scheme", ":" },
   { "unknown_scheme_with_user", "whatever://rup:ert@gnome.org" },
   { "empty_string", "" },
 };
