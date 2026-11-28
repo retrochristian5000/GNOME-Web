@@ -189,7 +189,9 @@ main (int   argc,
   EphyEmbedShellMode mode;
   int status = 1;
   EphyFileHelpersFlags flags;
+#if HAVE_XDG_PORTAL
   GDesktopAppInfo *desktop_info = NULL;
+#endif
 
 #if DEVELOPER_MODE
   g_setenv ("GSETTINGS_SCHEMA_DIR", BUILD_ROOT "/data", FALSE);
@@ -420,12 +422,14 @@ main (int   argc,
   } else if (application_mode) {
     mode = EPHY_EMBED_SHELL_MODE_APPLICATION;
 
+#if HAVE_XDG_PORTAL
     if (desktop_info) {
       ephy_web_application_setup_from_desktop_file (desktop_info);
       g_object_unref (desktop_info);
     } else {
       ephy_web_application_setup_from_profile_directory (profile_directory);
     }
+#endif
   } else if (profile_directory) {
     /* This mode exists purely for letting EphyShell know it should
      * not consider this instance part of the unique application

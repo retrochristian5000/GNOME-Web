@@ -3756,6 +3756,7 @@ setup_tab_view (EphyWindow *window)
                            G_CONNECT_DEFAULT);
 }
 
+#if HAVE_XDG_PORTAL
 static const char *supported_mime_types[] = {
   "x-scheme-handler/http",
   "x-scheme-handler/https",
@@ -3871,6 +3872,8 @@ is_browser_default (void)
 
   return FALSE;
 }
+
+#endif
 
 static void
 ephy_window_dispose (GObject *object)
@@ -3992,11 +3995,13 @@ ephy_window_show (GtkWidget *widget)
 
   GTK_WIDGET_CLASS (ephy_window_parent_class)->show (widget);
 
+#if HAVE_XDG_PORTAL
   /* Check for default browser */
   if (g_settings_get_boolean (EPHY_SETTINGS_MAIN, EPHY_PREFS_ASK_FOR_DEFAULT) &&
       !is_browser_default () &&
       !ephy_profile_dir_is_web_application ())
     add_default_browser_question (window);
+#endif
 }
 
 static void

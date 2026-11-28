@@ -20,7 +20,11 @@
 
 #pragma once
 
+#include "config.h"
+
+#if HAVE_XDG_PORTAL
 #include <gio/gdesktopappinfo.h>
+#endif
 #include <glib.h>
 #include <gtk/gtk.h>
 
@@ -90,7 +94,9 @@ gboolean            ephy_web_application_delete_by_desktop_file_id (const char  
 
 void                ephy_web_application_setup_from_profile_directory (const char *profile_directory);
 
+#if HAVE_XDG_PORTAL
 void                ephy_web_application_setup_from_desktop_file (GDesktopAppInfo *desktop_info);
+#endif
 
 char               *ephy_web_application_get_profile_directory (const char *id);
 

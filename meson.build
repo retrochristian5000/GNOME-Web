@@ -9,11 +9,20 @@ project('epiphany', 'c',
 gnome = import('gnome')
 i18n = import('i18n')
 
-r = run_command('grep', '-Po', '^NAME=\K.*', '/etc/os-release', check: false)
-if r.returncode() == 0
-  distributor_name = r.stdout().strip()
-else
-  distributor_name = 'GNOME Web'
+# Do not read the build machine's distribution when cross-compiling.
+distributor_name = 'GNOME Web'
+if host_machine.system() == 'darwin'
+  distributor_name = 'macOS'
+elif host_machine.system() == 'linux' and not meson.is_cross_build()
+  fs = import('fs')
+  if fs.is_file('/etc/os-release')
+    foreach line : fs.read('/etc/os-release').split('\n')
+      if line.startswith('NAME=')
+        distributor_name = line.substring(5).strip().strip('"')
+        break
+      endif
+    endforeach
+  endif
 endif
 
 prefix = get_option('prefix')

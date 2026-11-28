@@ -32,7 +32,6 @@ libephymisc_sources = [
   'ephy-security-levels.c',
   'ephy-settings.c',
   'ephy-signal-accumulator.c',
-  'ephy-smaps.c',
   'ephy-snapshot-service.c',
   'ephy-sqlite-connection.c',
   'ephy-sqlite-statement.c',
@@ -51,6 +50,12 @@ libephymisc_sources = [
   'history/ephy-history-types.c',
   enums
 ]
+
+if host_machine.system() == 'darwin'
+  libephymisc_sources += ['ephy-smaps-darwin.c']
+else
+  libephymisc_sources += ['ephy-smaps.c']
+endif
 
 if have_xdg_portal
   libephymisc_sources += ['ephy-flatpak-utils.c']

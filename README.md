@@ -107,6 +107,10 @@ implemented on macOS. They are disabled rather than reported as successful.
 The Linux XDG portal backend is unchanged.
 On macOS, generated website passwords use Security.framework's secure random
 number generator instead of libpwquality. Other platforms retain libpwquality.
+The memory diagnostics page uses Mach task information on macOS and reports
+only the browser process; Linux retains its /proc/smaps breakdown. The
+freedesktop default-browser prompt is disabled on macOS until native app
+bundle registration and default-browser integration are implemented.
 
 This is dependency discovery support, not a complete macOS port. A compatible
 WebKitGTK build and all other required libraries and tools must still be

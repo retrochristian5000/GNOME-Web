@@ -623,6 +623,7 @@ ephy_web_application_setup_from_profile_directory (const char *profile_directory
   }
 }
 
+#if HAVE_XDG_PORTAL
 void
 ephy_web_application_setup_from_desktop_file (GDesktopAppInfo *desktop_info)
 {
@@ -634,6 +635,8 @@ ephy_web_application_setup_from_desktop_file (GDesktopAppInfo *desktop_info)
   g_set_prgname (g_app_info_get_name (app_info));
   g_set_application_name (g_app_info_get_display_name (app_info));
 }
+
+#endif
 
 void
 ephy_web_application_launch (const char *id)

@@ -32,7 +32,6 @@
 #include <unistd.h>
 
 #include <gdk/gdk.h>
-#include <gio/gdesktopappinfo.h>
 #include <gio/gio.h>
 #include <glib.h>
 #include <glib/gi18n.h>
