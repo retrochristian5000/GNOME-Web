@@ -39,7 +39,7 @@ shared_module('ephywebprocessextension',
   install_rpath: pkglibdir
 )
 
-if get_option('unit_tests').enabled()
+if get_option('unit_tests').allowed()
   password_generator_test = executable('test-ephy-password-generator',
     'ephy-password-generator-test.c',
     'ephy-password-generator.c',

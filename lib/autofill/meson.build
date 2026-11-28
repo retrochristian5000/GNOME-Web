@@ -24,7 +24,8 @@ libephyautofill = shared_library('ephyautofill',
   dependencies: libephyautofill_deps,
   include_directories: libephyautofill_includes,
   install: true,
-  install_dir: pkglibdir
+  install_dir: pkglibdir,
+  install_rpath: pkglibdir
 )
 
 ephyautofill_dep = declare_dependency(

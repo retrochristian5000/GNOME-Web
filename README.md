@@ -46,7 +46,9 @@ dependencies will be provided by the manifest.
 
 ### Building Manually
 
-Epiphany uses the [Meson build system](http://mesonbuild.com/). You can build
+Epiphany uses the [Meson build system](https://mesonbuild.com/) (1.3 or newer).
+A compiler supporting GNU C23, or its GNU C2x draft spelling, is required.
+You can build
 Epiphany the same way you would any software that uses Meson. For example:
 
 ```

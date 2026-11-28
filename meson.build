@@ -1,20 +1,20 @@
 project('epiphany', 'c',
   license: 'GPL3+',
   version: '51.2',
-  meson_version: '>= 1.1',
-  default_options: ['c_std=gnu23',
+  meson_version: '>= 1.3',
+  default_options: ['c_std=gnu23,gnu2x',
                     'warning_level=2']
 )
 
 gnome = import('gnome')
 i18n = import('i18n')
+fs = import('fs')
 
 # Do not read the build machine's distribution when cross-compiling.
 distributor_name = 'GNOME Web'
 if host_machine.system() == 'darwin'
   distributor_name = 'macOS'
 elif host_machine.system() == 'linux' and not meson.is_cross_build()
-  fs = import('fs')
   if fs.is_file('/etc/os-release')
     foreach line : fs.read('/etc/os-release').split('\n')
       if line.startswith('NAME=')
@@ -38,8 +38,8 @@ pkglibexecdir = join_paths(libexecdir, 'epiphany')
 servicedir = join_paths(datadir, 'dbus-1', 'services')
 webprocessextensionsdir = join_paths(pkglibdir, 'web-process-extensions')
 
-iso_codes = dependency('iso-codes')
-iso_codes_prefix = iso_codes.get_variable(pkgconfig: 'prefix')
+iso_codes_dep = dependency('iso-codes', version: '>= 0.35', method: 'pkg-config')
+iso_codes_prefix = iso_codes_dep.get_variable(pkgconfig: 'prefix')
 
 profile = get_option('profile')
 application_id = 'org.gnome.Epiphany'
@@ -103,9 +103,7 @@ granite_dep = dependency('granite-7', version: '>= 7.2.0', required: get_option(
 gsettings_desktop_schemas = dependency('gsettings-desktop-schemas')
 gstreamer_dep = dependency('gstreamer-1.0')
 gtk_dep = dependency('gtk4', version: gtk_requirement)
-gtk_unix_print_dep = dependency('gtk4-unix-print', version: gtk_requirement)
 hogweed_dep = dependency('hogweed', version: nettle_requirement)
-iso_codes_dep = dependency('iso-codes', version: '>= 0.35')
 json_glib_dep = dependency('json-glib-1.0', version: '>= 1.6')
 cc = meson.get_compiler('c')
 
@@ -142,6 +140,7 @@ int main(void)
 }
 '''
 if not cc.links(libarchive_test, dependencies: libarchive_dep,
+                args: cc.get_supported_arguments('-Werror=implicit-function-declaration'),
                 name: 'libarchive ZIP/XPI reader API')
   error('libarchive headers and library must provide the ZIP/XPI reader API; check the target architecture and dependency search paths')
 endif

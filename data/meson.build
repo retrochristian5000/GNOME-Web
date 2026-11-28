@@ -68,13 +68,12 @@ generate_enums = custom_target('gsettings-enums',
     '@INPUT@'
   ]
 )
-copy_gschema = custom_target('copy-gschema-to-builddir',
-  input: 'org.gnome.epiphany.gschema.xml',
-  output: 'renamed-hack.gschema.xml',
-  command: ['cp', '@INPUT@', '@OUTPUT@']
+copy_gschema = fs.copyfile('org.gnome.epiphany.gschema.xml',
+  'renamed-hack.gschema.xml'
 )
 compile_schemas = custom_target('glib-compile-schemas',
   output: 'gschemas.compiled',
+  build_by_default: true,
   install: false,
   command: [find_program('glib-compile-schemas'),
     meson.current_build_dir()

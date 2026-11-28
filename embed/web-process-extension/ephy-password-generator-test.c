@@ -9,12 +9,13 @@ test_generate (void)
 {
   for (unsigned int i = 0; i < 32; i++) {
     g_autofree char *password = ephy_generate_secure_password ();
+#if USE_NATIVE_PASSWORD_GENERATOR
+    gboolean upper = FALSE, lower = FALSE, digit = FALSE, symbol = FALSE;
+#endif
 
     /* Do not include a password in assertion output. */
     g_assert_true (password != NULL && *password != '\0');
 #if USE_NATIVE_PASSWORD_GENERATOR
-    gboolean upper = FALSE, lower = FALSE, digit = FALSE, symbol = FALSE;
-
     g_assert_true (strlen (password) == 24);
     for (const char *p = password; *p; p++) {
       if (g_ascii_isupper (*p))

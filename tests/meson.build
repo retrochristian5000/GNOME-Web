@@ -1,15 +1,14 @@
-envs = [
-  'G_TEST_SRCDIR=' + meson.current_source_dir(),
-  'G_TEST_BUILDDIR=' + meson.current_build_dir(),
-  'GSETTINGS_SCHEMA_DIR=' + join_paths(meson.project_build_root(), 'data'),
-  'GSETTINGS_BACKEND=memory',
-  'GTK_IM_MODULE=none',
-  'PATH=' + join_paths(meson.project_build_root(), 'src') + ':' + run_command('printenv', 'PATH', check: true).stdout().strip(),
-]
+envs = environment()
+envs.set('G_TEST_SRCDIR', meson.current_source_dir())
+envs.set('G_TEST_BUILDDIR', meson.current_build_dir())
+envs.set('GSETTINGS_SCHEMA_DIR', join_paths(meson.project_build_root(), 'data'))
+envs.set('GSETTINGS_BACKEND', 'memory')
+envs.set('GTK_IM_MODULE', 'none')
+envs.prepend('PATH', join_paths(meson.project_build_root(), 'src'))
 
 test_cargs = ['-UG_DISABLE_ASSERT']
 
-if get_option('unit_tests').enabled()
+if get_option('unit_tests').allowed()
   libephytestutils = static_library('ephytestutils',
     'ephy-test-utils.c',
     dependencies: ephymain_dep,
@@ -111,6 +110,7 @@ if get_option('unit_tests').enabled()
   test('Search engine manager test',
     search_engine_manager_test,
     env: envs,
+    depends: compile_schemas,
   )
 
   # FIXME: https://bugzilla.gnome.org/show_bug.cgi?id=707220
@@ -200,7 +200,8 @@ if get_option('unit_tests').enabled()
     'ephy-web-view-test.c',
     resources,
     readability_resources,
-    dependencies: ephymain_dep
+    dependencies: ephymain_dep,
+    c_args: test_cargs,
   )
   test('Web view test',
        web_view_test,
