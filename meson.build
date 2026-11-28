@@ -150,7 +150,14 @@ else
   add_languages('objc', native: false, required: true)
   desktop_dep = dependency('appleframeworks', modules: ['AppKit', 'Foundation'])
 endif
-pwquality_dep = dependency('pwquality')
+# Password generation needs a cryptographic RNG, not Linux password policy.
+use_native_password_generator = host_machine.system() == 'darwin'
+conf.set10('USE_NATIVE_PASSWORD_GENERATOR', use_native_password_generator)
+if use_native_password_generator
+  password_generator_dep = dependency('appleframeworks', modules: ['Security'])
+else
+  password_generator_dep = dependency('pwquality')
+endif
 sqlite3_dep = dependency('sqlite3', version: '>= 3.22')
 webkitgtk_dep = dependency('webkitgtk-6.0', version: webkitgtk_requirement)
 webkitgtk_web_extension_dep = dependency('webkitgtk-web-process-extension-6.0', version: webkitgtk_requirement)

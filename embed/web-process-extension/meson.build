@@ -15,6 +15,7 @@ web_extension_common_sources = [
 
 web_process_extension_sources = [
   'ephy-web-process-extension.c',
+  'ephy-password-generator.c',
   'ephy-web-process-extension-main.c',
   'ephy-web-overview-model.c',
   web_process_extension_resources,
@@ -26,7 +27,7 @@ web_process_extension_deps = [
   ephyautofill_dep,
   ephymisc_dep,
   ephysync_dep,
-  pwquality_dep,
+  password_generator_dep,
   webkitgtk_web_extension_dep
 ]
 
@@ -37,3 +38,13 @@ shared_module('ephywebprocessextension',
   install_dir: webprocessextensionsdir,
   install_rpath: pkglibdir
 )
+
+if get_option('unit_tests').enabled()
+  password_generator_test = executable('test-ephy-password-generator',
+    'ephy-password-generator-test.c',
+    'ephy-password-generator.c',
+    dependencies: [config_h, glib_dep, password_generator_dep],
+    c_args: ['-UG_DISABLE_ASSERT']
+  )
+  test('Password generator', password_generator_test)
+endif

@@ -30,12 +30,12 @@
 #include <gtk/gtk.h>
 #include <jsc/jsc.h>
 #include <libsoup/soup.h>
-#include <pwquality.h>
 #include <webkit/webkit-web-process-extension.h>
 
 #include "ephy-autofill-field.h"
 #include "ephy-debug.h"
 #include "ephy-file-helpers.h"
+#include "ephy-password-generator.h"
 #include "ephy-permissions-manager.h"
 #include "ephy-prefs.h"
 #include "ephy-settings.h"
@@ -920,21 +920,7 @@ js_should_remember_passwords (EphyWebProcessExtension *extension)
 static char *
 js_generate_secure_password (void)
 {
-  static pwquality_settings_t *settings = NULL;
-  char *result;
-  int ret;
-
-  if (!settings)
-    settings = pwquality_default_settings ();
-
-  /* 128 is bits of entropy. See https://security.stackexchange.com/a/257535 */
-  ret = pwquality_generate (settings, 128, &result);
-  if (ret < 0) {
-    g_warning ("Failed to generate secure random password: %s", pwquality_strerror (NULL, 0, ret, NULL));
-    return NULL;
-  }
-
-  return g_steal_pointer (&result);
+  return ephy_generate_secure_password ();
 }
 
 static void
