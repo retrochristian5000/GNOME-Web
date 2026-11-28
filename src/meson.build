@@ -260,3 +260,10 @@ executable('epiphany-proxy-check',
   install: true,
   install_dir: pkglibexecdir,
 )
+
+if php_diagnostics.allowed()
+  install_data('developer/epiphany-php-lint',
+    install_dir: pkglibexecdir,
+    install_mode: 'rwxr-xr-x',
+  )
+endif

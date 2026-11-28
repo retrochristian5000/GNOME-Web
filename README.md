@@ -86,6 +86,35 @@ suite in tests/legacy-web/jscript. The test checks the shared ECMAScript
 behavior and legacy text/jscript media type; it does not emulate Microsoft
 conditional compilation or Windows COM objects.
 
+### PHP diagnostics
+
+The optional local PHP syntax checker is installed as
+`epiphany-php-lint` in Epiphany's private libexec directory.
+It resolves PHP CLI from PATH at runtime. Use the following from the source tree:
+
+```sh
+sh src/developer/epiphany-php-lint /absolute/path/to/local/page.php
+```
+
+The tool requires a regular local file, reads the source through standard
+input, and uses PHP's syntax-only mode without loading php.ini. It does not
+run PHP application code, request a URL, or start a server. The diagnostic
+uses the locally installed PHP version, which may differ from the server.
+Syntax success does not establish correct runtime behavior. Only check
+trusted local source with a maintained PHP interpreter.
+
+Set `-Dphp-diagnostics=enabled` to require PHP on PATH at native configure
+time, or `-Dphp-diagnostics=disabled` to omit the utility. The default
+`auto` installs the optional tool even when PHP will be supplied later.
+Cross builds resolve PHP on the target. Native syntax tests are registered
+when PHP is available to the build machine.
+
+For remote pages use Web Inspector (F12) to inspect the HTTP response and
+generated document. PHP source and server-side stack traces require access
+to the corresponding application source or authorized server logs.
+For breakpoints and runtime inspection, configure Xdebug on a development
+server with an appropriate debugger client; this utility is not a DBGp client.
+
 ### Proxy and PAC diagnostics
 
 WebKitGTK and independent libsoup sessions normally use the default GIO

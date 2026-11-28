@@ -1,0 +1,27 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-or-later
+set -eu
+
+if [ "$#" -ne 1 ]; then
+    printf '%s\n' 'Usage: epiphany-php-lint /absolute/path/to/local.php' >&2
+    exit 2
+fi
+
+case "$1" in
+    /*) ;;
+    *) printf '%s\n' 'Supply an absolute local file path, not a URL.' >&2; exit 2 ;;
+esac
+
+if [ ! -f "$1" ] || [ ! -r "$1" ]; then
+    printf '%s\n' 'PHP source must be a readable regular file.' >&2
+    exit 2
+fi
+
+if ! command -v php >/dev/null 2>&1; then
+    printf '%s\n' 'PHP CLI is not installed or is not on PATH.' >&2
+    exit 127
+fi
+
+# Never pass source as a command-line option or execute application code.
+# -n suppresses php.ini loading; -l requests syntax checking only.
+exec php -n -l < "$1"

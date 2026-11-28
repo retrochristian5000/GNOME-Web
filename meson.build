@@ -89,6 +89,12 @@ if have_ruffle_web
   endif
 endif
 conf.set10('HAVE_RUFFLE_WEB', have_ruffle_web)
+
+# PHP is a target-side developer tool, never a browser scripting backend.
+php_diagnostics = get_option('php-diagnostics')
+if php_diagnostics.enabled() and not meson.is_cross_build()
+  find_program('php', native: true, required: true)
+endif
 conf.set_quoted('RUFFLE_WEB_RESOURCE', pkgdatadir / 'ruffle-web.gresource')
 
 version_array = meson.project_version().split('.')

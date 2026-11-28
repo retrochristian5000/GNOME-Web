@@ -9,6 +9,15 @@ envs.prepend('PATH', join_paths(meson.project_build_root(), 'src'))
 test_cargs = ['-UG_DISABLE_ASSERT']
 
 if get_option('unit_tests').allowed()
+  if php_diagnostics.allowed()
+    php_for_tests = find_program('php', native: true, required: false)
+    if php_for_tests.found()
+      test('PHP syntax diagnostics', find_program('sh', native: true),
+        args: [files('php-lint-test.sh'), files('../src/developer/epiphany-php-lint'), php_for_tests.full_path()],
+      )
+    endif
+  endif
+
   proxy_test = executable('test-ephy-proxy',
     'ephy-proxy-test.c',
     dependencies: [gio_dep, glib_dep, libsoup_dep],
