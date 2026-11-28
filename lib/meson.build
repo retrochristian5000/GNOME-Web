@@ -24,6 +24,7 @@ libephymisc_sources = [
   'ephy-file-helpers.c',
   'ephy-ftp.c',
   'ephy-git.c',
+  'ephy-git-backend.c',
   'ephy-gopher.c',
   'ephy-json-utils.c',
   'ephy-langs.c',
@@ -95,6 +96,10 @@ libephymisc_deps = [
 if legacy_curl_dep.found()
   libephymisc_deps += [legacy_curl_dep]
   libephymisc_sources += ['ephy-ftp-curl.c']
+endif
+
+if legacy_git_dep.found()
+  libephymisc_deps += [legacy_git_dep]
 endif
 
 libephymisc_includes = include_directories(

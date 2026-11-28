@@ -52,6 +52,19 @@ if get_option('unit_tests').allowed()
   )
   test('Git URI parsing (offline)', git_test)
 
+  git_backend_test_deps = [config_h]
+  if legacy_git_dep.found()
+    git_backend_test_deps += [legacy_git_dep]
+  endif
+  git_backend_test = executable('test-ephy-git-backend',
+    'ephy-git-backend-test.c',
+    '../lib/ephy-git-backend.c',
+    include_directories: include_directories('../lib', '..'),
+    dependencies: git_backend_test_deps,
+    c_args: ['-UNDEBUG'],
+  )
+  test('Git backend capabilities and reference validation (offline)', git_backend_test)
+
   tftp_test = executable('test-ephy-tftp',
     'ephy-tftp-test.c',
     '../lib/ephy-tftp.c',

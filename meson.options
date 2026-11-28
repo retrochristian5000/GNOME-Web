@@ -63,3 +63,9 @@ option('legacy-curl',
   value: 'auto',
   description: 'Build optional libcurl backend capability detection for legacy protocols'
 )
+
+option('legacy-git',
+  type: 'feature',
+  value: 'auto',
+  description: 'Build optional libgit2 backend for Git repository compatibility'
+)

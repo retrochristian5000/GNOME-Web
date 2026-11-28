@@ -143,6 +143,12 @@ legacy_curl_dep = dependency('libcurl', version: '>= 7.85.0',
 conf.set10('HAVE_LEGACY_CURL', legacy_curl_dep.found())
 message('Legacy protocol libcurl backend: ' + (legacy_curl_dep.found() ? 'available' : 'disabled or unavailable'))
 
+# Optional repository backend. Never use it for ordinary HTTP navigation.
+legacy_git_dep = dependency('libgit2', version: '>= 1.8.0',
+  required: get_option('legacy-git'))
+conf.set10('HAVE_LEGACY_GIT', legacy_git_dep.found())
+message('Git repository libgit2 backend: ' + (legacy_git_dep.found() ? 'available' : 'disabled or unavailable'))
+
 # Keep package metadata first, including Homebrew's keg-only libarchive.
 libarchive_dep = dependency('libarchive', required: false)
 if not libarchive_dep.found() and host_machine.system() == 'darwin'
