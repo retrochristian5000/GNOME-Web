@@ -52,6 +52,15 @@ if get_option('unit_tests').allowed()
   )
   test('TFTP URI parsing', tftp_test)
 
+  ssh_test = executable('test-ephy-ssh',
+    'ephy-ssh-test.c',
+    '../lib/ephy-ssh.c',
+    include_directories: include_directories('../lib'),
+    dependencies: [gio_dep, glib_dep],
+    c_args: test_cargs,
+  )
+  test('SSH and SFTP URI parsing', ssh_test)
+
   ruffle_test = executable('test-ephy-ruffle',
     'ephy-ruffle-test.c',
     '../lib/ephy-ruffle.c',

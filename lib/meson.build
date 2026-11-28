@@ -38,6 +38,7 @@ libephymisc_sources = [
   'ephy-snapshot-service.c',
   'ephy-sqlite-connection.c',
   'ephy-sqlite-statement.c',
+  'ephy-ssh.c',
   'ephy-string.c',
   'ephy-suggestion.c',
   'ephy-sync-utils.c',
