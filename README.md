@@ -79,6 +79,31 @@ $ sudo apt install $(apt-file search --package-only hogweed)
 In other distributions, you must research each dependency to determine which
 package provides the required pkg-config file.
 
+### Homebrew discovery on macOS
+
+For a native macOS build, an optional environment helper makes existing Homebrew
+libraries and build tools visible to Meson, including selected unlinked
+(keg-only) formulae. From the source directory, run:
+
+```sh
+sh build-aux/homebrew-env.sh meson setup build
+sh build-aux/homebrew-env.sh meson compile -C build
+sh build-aux/homebrew-env.sh meson test -C build
+```
+
+For an existing build directory, use `meson setup --reconfigure build` through
+the helper. Use the same helper for build commands that may reconfigure the
+project. The helper checks `brew` on `PATH`, then the standard Homebrew location
+for the running architecture. Use a Homebrew installation matching your target
+architecture. Existing `PATH` and `PKG_CONFIG_PATH` entries retain priority;
+additional paths apply only to the invoked command. No packages are installed or
+updated. Additional formulae can be exposed through those environment variables.
+Use explicit Meson machine files instead for cross builds.
+
+This is dependency discovery support, not a complete macOS port. A compatible
+WebKitGTK build and all other required libraries and tools must still be
+available, and the normal Meson version checks remain in effect.
+
 ### Rebuilding Dependencies
 
 Newcomers should try to avoid bugs that require making changes in WebKit or
