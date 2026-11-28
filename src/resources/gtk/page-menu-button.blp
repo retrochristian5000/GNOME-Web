@@ -39,6 +39,12 @@ menu page_menu {
       action: "win.fullscreen";
       accel: "F11";
     }
+
+    item {
+      label: _("Enable Flash on This Page");
+      action: "win.ruffle-web";
+      hidden-when: "action-missing";
+    }
   }
 
   section {

@@ -77,6 +77,20 @@ if ruffle_option.enabled() and not meson.is_cross_build()
 endif
 conf.set10('HAVE_RUFFLE', ruffle_option.allowed())
 
+ruffle_web_option = get_option('ruffle-web')
+ruffle_web_dir = get_option('ruffle-web-dir')
+have_ruffle_web = ruffle_web_option.allowed() and ruffle_web_dir != ''
+if ruffle_web_option.enabled() and not have_ruffle_web
+  error('Ruffle Web requires -Druffle-web-dir=/absolute/path/to/selfhosted-release')
+endif
+if have_ruffle_web
+  if not fs.is_absolute(ruffle_web_dir) or not fs.is_file(ruffle_web_dir / 'ruffle.js')
+    error('Ruffle Web requires a complete extracted self-hosted release')
+  endif
+endif
+conf.set10('HAVE_RUFFLE_WEB', have_ruffle_web)
+conf.set_quoted('RUFFLE_WEB_RESOURCE', pkgdatadir / 'ruffle-web.gresource')
+
 version_array = meson.project_version().split('.')
 conf.set('EPHY_MAJOR_VERSION', version_array[0].to_int())
 if version_array[1] in ['alpha', 'beta', 'rc']

@@ -45,6 +45,7 @@
 #include "ephy-bookmarks-manager.h"
 #include "ephy-cdf.h"
 #include "ephy-ruffle.h"
+#include "ephy-ruffle-web.h"
 #include "ephy-debug.h"
 #include "ephy-embed-container.h"
 #include "ephy-embed-prefs.h"
@@ -1570,6 +1571,85 @@ open_dialog_cb (GtkFileDialog *dialog,
     if (converted)
       ephy_window_load_url (window, converted);
   }
+}
+
+#if HAVE_RUFFLE_WEB
+static void
+ruffle_web_finished_cb (GObject      *object,
+                        GAsyncResult *result,
+                        gpointer      user_data)
+{
+  WebKitWebView *view = WEBKIT_WEB_VIEW (object);
+  g_autoptr (GError) error = NULL;
+  g_autoptr (JSCValue) value = webkit_web_view_call_async_javascript_function_finish (view, result, &error);
+
+  if (!value) {
+    GtkRoot *root = gtk_widget_get_root (GTK_WIDGET (view));
+    AdwDialog *alert;
+
+    if (!root || !GTK_IS_WINDOW (root))
+      return;
+
+    alert = adw_alert_dialog_new (_("Could Not Load Ruffle Web"),
+                                  _("The player could not load. The page may restrict scripts or WebAssembly."));
+    adw_alert_dialog_add_response (ADW_ALERT_DIALOG (alert), "close", _("_Close"));
+    adw_dialog_present (alert, GTK_WIDGET (root));
+  }
+}
+#endif
+
+void
+window_cmd_ruffle_web (GSimpleAction *action,
+                      GVariant      *parameter,
+                      gpointer       user_data)
+{
+#if HAVE_RUFFLE_WEB
+  EphyWindow *window = user_data;
+  EphyEmbed *embed = ephy_embed_container_get_active_child (EPHY_EMBED_CONTAINER (window));
+  WebKitWebView *view;
+  const char *uri;
+  AdwDialog *alert;
+  static const char loader[] =
+    "if (!['http:', 'https:'].includes(location.protocol)) throw Error('Not a web page');"
+    "if (window.RufflePlayer && window.RufflePlayer.newest) return true;"
+    "if (document.getElementById('ephy-ruffle-web-loader')) throw Error('Player is already loading');"
+    "window.RufflePlayer = window.RufflePlayer || {};"
+    "window.RufflePlayer.config = {publicPath:'ephy-ruffle://assets/',"
+    "polyfills:true, autoplay:'off', allowScriptAccess:false, openUrlMode:'deny',"
+    "allowNetworking:'internal', credentialAllowList:[], socketProxy:[],"
+    "compatibilityRules:false, showSwfDownload:true};"
+    "return await new Promise((resolve,reject)=>{"
+    " const script=document.createElement('script');"
+    " script.id='ephy-ruffle-web-loader';"
+    " script.src='ephy-ruffle://assets/ruffle.js';"
+    " script.crossOrigin='anonymous';"
+    " const timer=setTimeout(()=>{script.remove();reject(Error('Player load timed out'));},15000);"
+    " script.onload=()=>{clearTimeout(timer);resolve(true);};"
+    " script.onerror=()=>{clearTimeout(timer);script.remove();reject(Error('Player blocked'));};"
+    " (document.head || document.documentElement).appendChild(script);"
+    "});";
+
+  if (!embed)
+    return;
+
+  view = EPHY_GET_WEBKIT_WEB_VIEW_FROM_EMBED (embed);
+  uri = webkit_web_view_get_uri (view);
+  if (!uri || (!g_str_has_prefix (uri, "http://") && !g_str_has_prefix (uri, "https://")) ||
+      webkit_web_view_is_loading (view) ||
+      !webkit_settings_get_enable_javascript (webkit_web_view_get_settings (view)) ||
+      !ephy_ruffle_web_available (webkit_web_view_get_context (view))) {
+    alert = adw_alert_dialog_new (_("Ruffle Web Unavailable"),
+                                  _("Open a fully loaded web page with JavaScript enabled and install the Ruffle Web bundle."));
+    adw_alert_dialog_add_response (ADW_ALERT_DIALOG (alert), "close", _("_Close"));
+    adw_dialog_present (alert, GTK_WIDGET (window));
+    return;
+  }
+
+  /* Insert a normal page script element: page CSP and origin rules remain
+   * in force. No privileged script message handler or network proxy. */
+  webkit_web_view_call_async_javascript_function (view, loader, -1, NULL, NULL, NULL,
+                                                  NULL, ruffle_web_finished_cb, NULL);
+#endif
 }
 
 void

@@ -926,6 +926,9 @@ static const GActionEntry window_entries [] = {
   { "page-menu", window_cmd_page_menu },
   { "new-tab", window_cmd_new_tab },
   { "open", window_cmd_open },
+#if HAVE_RUFFLE_WEB
+  { "ruffle-web", window_cmd_ruffle_web },
+#endif
   { "save-as", window_cmd_save_as },
   { "save-as-application", window_cmd_save_as_application },
   { "screenshot", window_cmd_screenshot },

@@ -22,6 +22,7 @@
 #include <config.h>
 
 #include "ephy-embed-shell.h"
+#include "ephy-ruffle-web.h"
 
 #include <stdlib.h>
 
@@ -936,6 +937,8 @@ ephy_embed_shell_startup (GApplication *application)
                                           NULL, NULL);
   webkit_security_manager_register_uri_scheme_as_secure (webkit_web_context_get_security_manager (priv->web_context),
                                                          "ephy-resource");
+
+  ephy_ruffle_web_register (priv->web_context);
 
   /* Store cookies in moz-compatible SQLite format */
   if (!webkit_network_session_is_ephemeral (priv->network_session)) {

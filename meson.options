@@ -39,3 +39,15 @@ option('ruffle',
   value: 'auto',
   description: 'Enable explicit local SWF playback with Ruffle Desktop'
 )
+
+option('ruffle-web',
+  type: 'feature',
+  value: 'auto',
+  description: 'Enable local self-hosted Ruffle Web player'
+)
+
+option('ruffle-web-dir',
+  type: 'string',
+  value: '',
+  description: 'Absolute path to a trusted extracted Ruffle self-hosted release'
+)

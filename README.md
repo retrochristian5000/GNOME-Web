@@ -58,9 +58,22 @@ disable integration. Cross builds resolve the executable only on the target.
 Open File launches a separate player with noninteractive filesystem access
 and external website opening denied. Ruffle's own networking behavior still
 applies; this is not an OS sandbox or an offline guarantee. There is no
-automatic playback of downloaded files or embedded webpage Flash yet.
-The web player (JavaScript/Wasm) needs a separate browser integration that
-preserves page origins and content security policy.
+automatic playback of downloaded files.
+
+Ruffle Web is a separate optional feature. Obtain and verify a maintained
+self-hosted release from https://ruffle.rs/downloads/ and extract it locally.
+Configure with `-Druffle-web=enabled -Druffle-web-dir=/absolute/path/to/release`.
+Meson packages the supplied public JavaScript and Wasm assets without fetching
+anything from the network. After installation, choose **Enable Flash on This
+Page** from the main menu of a loaded HTTP(S) page. Ruffle's polyfill handles
+legacy object/embed elements. The page's script and Wasm policies still apply;
+some sites may prevent playback. The initial configuration requests no
+autoplay, no Flash-to-page scripting and internal Flash networking mode.
+This mode still permits network activity; Ruffle's 'none' mode is not yet
+implemented. Page scripts can modify Ruffle configuration, so these are not
+a separate security boundary. No browser credential bridge, CORS override for SWFs, or automatic
+activation on navigation is provided. Desktop playback via Open File remains
+independent. Reload the page to discard the injected player.
 
 Legacy Channel Definition Format (CDF) documents can be opened locally using
 the browser's Open File command. The read-only channel viewer supports nested
