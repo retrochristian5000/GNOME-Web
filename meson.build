@@ -146,7 +146,10 @@ mini_gmp_test = '''
 if cc.compiles(mini_gmp_test, dependencies: hogweed_dep)
   gmp_dep = dependency('', required: false)
 else
-  gmp_dep = cc.find_library('gmp')
+  gmp_dep = dependency('gmp', method: 'pkg-config', required: false)
+  if not gmp_dep.found()
+    gmp_dep = cc.find_library('gmp')
+  endif
 endif
 
 m_dep = cc.find_library('m', required: false)
