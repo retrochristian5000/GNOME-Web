@@ -92,6 +92,7 @@ libephymisc_deps = [
 
 if legacy_curl_dep.found()
   libephymisc_deps += [legacy_curl_dep]
+  libephymisc_sources += ['ephy-ftp-curl.c']
 endif
 
 libephymisc_includes = include_directories(

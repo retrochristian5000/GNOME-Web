@@ -83,6 +83,19 @@ if get_option('unit_tests').allowed()
   )
   test('Legacy curl capabilities (offline)', curl_test)
 
+  if legacy_curl_dep.found()
+    ftp_curl_test = executable('test-ephy-ftp-curl',
+      'ephy-ftp-curl-test.c',
+      '../lib/ephy-ftp.c',
+      '../lib/ephy-curl.c',
+      '../lib/ephy-ftp-curl.c',
+      include_directories: include_directories('../lib', '..'),
+      dependencies: [config_h, gio_dep, glib_dep, legacy_curl_dep],
+      c_args: test_cargs,
+    )
+    test('FTP curl preparation (offline)', ftp_curl_test)
+  endif
+
   ruffle_test = executable('test-ephy-ruffle',
     'ephy-ruffle-test.c',
     '../lib/ephy-ruffle.c',
