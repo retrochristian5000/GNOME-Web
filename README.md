@@ -48,6 +48,12 @@ dependencies will be provided by the manifest.
 
 Epiphany uses the [Meson build system](https://mesonbuild.com/) (1.3 or newer).
 A compiler supporting GNU C23, or its GNU C2x draft spelling, is required.
+Legacy Channel Definition Format (CDF) documents can be opened locally using
+the browser's Open File command. The read-only channel viewer supports nested
+channels, titles, abstracts and HTTP(S) links. Relative links require an
+absolute HTTP(S) SELF URL. It does not automatically fetch channel content,
+load external DTDs, run embedded scripts or schedule subscriptions.
+
 Firefox Sync requires matching Nettle and Hogweed releases. Meson checks the
 installed GMP configuration and links a public-key API probe before building.
 Normal GMP builds are preferred; mini-GMP is not ABI-compatible with them.

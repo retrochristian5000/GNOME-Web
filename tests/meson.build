@@ -9,6 +9,15 @@ envs.prepend('PATH', join_paths(meson.project_build_root(), 'src'))
 test_cargs = ['-UG_DISABLE_ASSERT']
 
 if get_option('unit_tests').allowed()
+  cdf_test = executable('test-ephy-cdf',
+    'ephy-cdf-test.c',
+    '../lib/ephy-cdf.c',
+    include_directories: include_directories('../lib'),
+    dependencies: [gio_dep, glib_dep, libxml_dep],
+    c_args: test_cargs,
+  )
+  test('CDF parser', cdf_test)
+
   libephytestutils = static_library('ephytestutils',
     'ephy-test-utils.c',
     dependencies: ephymain_dep,

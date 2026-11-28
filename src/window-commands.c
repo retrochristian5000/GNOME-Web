@@ -43,6 +43,7 @@
 #include "ephy-bookmarks-export.h"
 #include "ephy-bookmarks-import.h"
 #include "ephy-bookmarks-manager.h"
+#include "ephy-cdf.h"
 #include "ephy-debug.h"
 #include "ephy-embed-container.h"
 #include "ephy-embed-prefs.h"
@@ -1526,6 +1527,26 @@ open_dialog_cb (GtkFileDialog *dialog,
   if (error) {
     if (!g_error_matches (error, GTK_DIALOG_ERROR, GTK_DIALOG_ERROR_DISMISSED))
       g_warning ("Failed to open file: %s", error->message);
+    return;
+  }
+
+  if (!file)
+    return;
+
+  if (ephy_cdf_is_file (file)) {
+    g_autofree char *html = ephy_cdf_load_file (file, &error);
+    EphyEmbed *embed = ephy_embed_container_get_active_child (EPHY_EMBED_CONTAINER (window));
+
+    if (!html) {
+      AdwDialog *alert = adw_alert_dialog_new (_("Could Not Open Channel Definition"), error->message);
+
+      adw_alert_dialog_add_response (ADW_ALERT_DIALOG (alert), "close", _("_Close"));
+      adw_dialog_present (alert, GTK_WIDGET (window));
+      return;
+    }
+
+    if (embed)
+      webkit_web_view_load_html (EPHY_GET_WEBKIT_WEB_VIEW_FROM_EMBED (embed), html, NULL);
     return;
   }
 
