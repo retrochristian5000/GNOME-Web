@@ -136,6 +136,13 @@ gtk_dep = dependency('gtk4', version: gtk_requirement)
 json_glib_dep = dependency('json-glib-1.0', version: '>= 1.6')
 cc = meson.get_compiler('c')
 
+# Keep WebKit/libsoup responsible for web traffic. libcurl is an optional
+# backend for separately controlled legacy protocol handlers.
+legacy_curl_dep = dependency('libcurl', version: '>= 7.85.0',
+  required: get_option('legacy-curl'))
+conf.set10('HAVE_LEGACY_CURL', legacy_curl_dep.found())
+message('Legacy protocol libcurl backend: ' + (legacy_curl_dep.found() ? 'available' : 'disabled or unavailable'))
+
 # Keep package metadata first, including Homebrew's keg-only libarchive.
 libarchive_dep = dependency('libarchive', required: false)
 if not libarchive_dep.found() and host_machine.system() == 'darwin'

@@ -57,3 +57,9 @@ option('php-diagnostics',
   value: 'auto',
   description: 'Install optional local PHP syntax-checking tool'
 )
+
+option('legacy-curl',
+  type: 'feature',
+  value: 'auto',
+  description: 'Build optional libcurl backend capability detection for legacy protocols'
+)

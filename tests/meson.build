@@ -70,6 +70,19 @@ if get_option('unit_tests').allowed()
   )
   test('FTP and FTPS URI parsing', ftp_test)
 
+  curl_test_deps = [config_h]
+  if legacy_curl_dep.found()
+    curl_test_deps += [legacy_curl_dep]
+  endif
+  curl_test = executable('test-ephy-curl',
+    'ephy-curl-test.c',
+    '../lib/ephy-curl.c',
+    include_directories: include_directories('../lib', '..'),
+    dependencies: curl_test_deps,
+    c_args: ['-UNDEBUG'],
+  )
+  test('Legacy curl capabilities (offline)', curl_test)
+
   ruffle_test = executable('test-ephy-ruffle',
     'ephy-ruffle-test.c',
     '../lib/ephy-ruffle.c',

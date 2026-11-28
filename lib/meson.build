@@ -16,6 +16,7 @@ libephymisc_sources = [
   'contrib/dzl-suggestion.c',
   'contrib/gnome-languages.c',
   'ephy-cdf.c',
+  'ephy-curl.c',
   'ephy-debug.c',
   'ephy-favicon-helpers.c',
   'ephy-file-dialog-utils.c',
@@ -88,6 +89,10 @@ libephymisc_deps = [
   sqlite3_dep,
   webkitgtk_dep
 ]
+
+if legacy_curl_dep.found()
+  libephymisc_deps += [legacy_curl_dep]
+endif
 
 libephymisc_includes = include_directories(
   '.',
