@@ -284,6 +284,13 @@ main (int   argc,
 
   g_option_context_free (option_context);
 
+#if !HAVE_XDG_PORTAL
+  if (application_mode || application_to_delete) {
+    g_printerr ("Native web app launch and removal are not implemented on macOS\n");
+    goto out;
+  }
+#endif
+
   /* Some argument sanity checks*/
   if (application_to_delete && argc > 3) {
     g_print ("Cannot pass any other parameter when using --delete-application\n");
@@ -310,6 +317,7 @@ main (int   argc,
     goto out;
   }
 
+#if HAVE_XDG_PORTAL
   if (application_mode && !profile_directory) {
     if (desktop_file_basename) {
       if (xdp_portal_running_under_sandbox ()) {
@@ -330,6 +338,8 @@ main (int   argc,
       }
     }
   }
+
+#endif
 
   if (application_mode && !profile_directory) {
     g_print ("--profile must be used when --application-mode is requested without desktop file path\n");

@@ -32,7 +32,9 @@
 #include <gio/gunixoutputstream.h>
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
+#if HAVE_XDG_PORTAL
 #include <libportal-gtk4/portal-gtk4.h>
+#endif
 #include <libsoup/soup.h>
 
 #include "ephy-debug.h"
@@ -253,6 +255,7 @@ gboolean
 ephy_web_application_delete (const char      *id,
                              EphyWebAppFound *out_app_found)
 {
+#if HAVE_XDG_PORTAL
   g_autofree char *profile_dir = NULL;
   g_autofree char *cache_dir = NULL;
   g_autofree char *config_dir = NULL;
@@ -316,6 +319,13 @@ ephy_web_application_delete (const char      *id,
   LOG ("Deleted application launcher %s.", desktop_file);
 
   return TRUE;
+#else
+  if (out_app_found)
+    *out_app_found = ephy_web_application_exists (id) ? EPHY_WEB_APP_FOUND : EPHY_WEB_APP_NOT_FOUND;
+
+  g_warning ("Native web app removal is not implemented on macOS");
+  return FALSE;
+#endif
 }
 
 /**
@@ -364,6 +374,7 @@ build_exec_string (const char *profile_dir,
   return escape_exec_string (exec_string_raw);
 }
 
+#if HAVE_XDG_PORTAL
 static gboolean
 create_desktop_file (const char  *id,
                      const char  *address,
@@ -414,6 +425,8 @@ create_desktop_file (const char  *id,
   return TRUE;
 }
 
+#endif
+
 /**
  * ephy_web_application_create:
  * @id: the identifier for the new web application
@@ -434,6 +447,7 @@ ephy_web_application_create (const char                 *id,
                              EphyWebApplicationOptions   options,
                              GError                    **error)
 {
+#if HAVE_XDG_PORTAL
   g_autofree char *app_file = NULL;
   g_autofree char *profile_dir = NULL;
   int fd;
@@ -474,11 +488,17 @@ ephy_web_application_create (const char                 *id,
   ephy_web_application_initialize_settings (profile_dir, options);
 
   return TRUE;
+#else
+  g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                       "Native web app installation is not implemented on macOS");
+  return FALSE;
+#endif
 }
 
 char *
 ephy_web_application_ensure_for_app_info (GAppInfo *app_info)
 {
+#if HAVE_XDG_PORTAL
   g_autofree char *id = NULL;
   g_autofree char *profile_dir = NULL;
   g_autofree char *app_file = NULL;
@@ -535,12 +555,16 @@ ephy_web_application_ensure_for_app_info (GAppInfo *app_info)
   }
 
   return g_steal_pointer (&profile_dir);
+#else
+  return NULL;
+#endif
 }
 
 GKeyFile *
 ephy_web_application_get_desktop_keyfile (const char  *id,
                                           GError     **error)
 {
+#if HAVE_XDG_PORTAL
   XdpPortal *portal = ephy_get_portal ();
   g_autofree char *desktop_basename = NULL;
   g_autofree char *contents = NULL;
@@ -556,6 +580,11 @@ ephy_web_application_get_desktop_keyfile (const char  *id,
     return NULL;
 
   return g_steal_pointer (&key_file);
+#else
+  g_set_error_literal (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                       "Native web app launcher metadata is not implemented on macOS");
+  return NULL;
+#endif
 }
 
 void
@@ -609,6 +638,7 @@ ephy_web_application_setup_from_desktop_file (GDesktopAppInfo *desktop_info)
 void
 ephy_web_application_launch (const char *id)
 {
+#if HAVE_XDG_PORTAL
   XdpPortal *portal = ephy_get_portal ();
   g_autofree char *desktop_basename = NULL;
   g_autoptr (GError) error = NULL;
@@ -616,6 +646,9 @@ ephy_web_application_launch (const char *id)
   desktop_basename = get_app_desktop_filename (id);
   if (!xdp_portal_dynamic_launcher_launch (portal, desktop_basename, NULL, &error))
     g_warning ("Failed to launch app '%s': %s", desktop_basename, error->message);
+#else
+  g_warning ("Native web app launching is not implemented on macOS");
+#endif
 }
 
 void
@@ -631,6 +664,7 @@ ephy_web_application_free (EphyWebApplication *app)
   g_free (app);
 }
 
+#if HAVE_XDG_PORTAL
 static char *
 ephy_web_application_get_tmp_icon_path (const char  *desktop_path,
                                         GError     **error)
@@ -699,10 +733,13 @@ ephy_web_application_get_tmp_icon_path (const char  *desktop_path,
   return g_steal_pointer (&tmp_file_path);
 }
 
+#endif
+
 EphyWebApplication *
 ephy_web_application_for_profile_directory (const char            *profile_dir,
                                             EphyWebAppNeedTmpIcon  need_tmp_icon)
 {
+#if HAVE_XDG_PORTAL
   g_autoptr (EphyWebApplication) app = NULL;
   const char *id;
   g_autoptr (GDesktopAppInfo) desktop_info = NULL;
@@ -775,6 +812,9 @@ ephy_web_application_for_profile_directory (const char            *profile_dir,
   app->install_date_uint64 = g_file_info_get_attribute_uint64 (file_info, G_FILE_ATTRIBUTE_TIME_CREATED);
 
   return g_steal_pointer (&app);
+#else
+  return NULL;
+#endif
 }
 
 /**
@@ -1040,6 +1080,7 @@ ephy_web_icon_copy_cb (GFile        *file,
 gboolean
 ephy_web_application_save (EphyWebApplication *app)
 {
+#if HAVE_XDG_PORTAL
   g_autoptr (GKeyFile) keyfile = NULL;
   g_autofree char *contents = NULL;
   g_autofree char *name = NULL;
@@ -1106,6 +1147,9 @@ ephy_web_application_save (EphyWebApplication *app)
   }
 
   return saved;
+#else
+  return FALSE;
+#endif
 }
 
 gboolean

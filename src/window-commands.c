@@ -33,7 +33,9 @@
 #include <glib/gi18n.h>
 #include <gst/gst.h>
 #include <gtk/gtk.h>
+#if HAVE_XDG_PORTAL
 #include <libportal-gtk4/portal-gtk4.h>
+#endif
 #include <webkit/webkit.h>
 
 #include "clear-data-view.h"
@@ -2019,6 +2021,7 @@ send_web_app_install_notification (EphyApplicationDialogData *data,
   g_application_send_notification (G_APPLICATION (g_application_get_default ()), name, notification);
 }
 
+#if HAVE_XDG_PORTAL
 static void
 save_as_application_proceed (EphyApplicationDialogData *data)
 {
@@ -2112,9 +2115,12 @@ prepare_install_cb (GObject      *object,
   adw_dialog_present (confirmation_dialog, GTK_WIDGET (data->window));
 }
 
+#endif
+
 static void
 create_install_dialog_when_ready (EphyApplicationDialogData *data)
 {
+#if HAVE_XDG_PORTAL
   XdpPortal *portal;
   g_autoptr (XdpParent) parent = NULL;
 
@@ -2131,6 +2137,15 @@ create_install_dialog_when_ready (EphyApplicationDialogData *data)
                                                data->cancellable,
                                                prepare_install_cb,
                                                data);
+#else
+  if (data->webapp_options_set && data->title && data->icon_v) {
+    g_autoptr (GError) error = g_error_new_literal (G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED,
+                                                   "Native web app installation is not implemented on macOS");
+
+    send_web_app_install_notification (data, error);
+    ephy_application_dialog_data_free (data);
+  }
+#endif
 }
 
 static void

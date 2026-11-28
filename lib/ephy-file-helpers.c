@@ -38,7 +38,9 @@
 #include <glib/gi18n.h>
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
+#if HAVE_XDG_PORTAL
 #include <libportal/portal-helpers.h>
+#endif
 #include <libxml/xmlreader.h>
 
 #include "ephy-debug.h"
@@ -76,7 +78,9 @@ static char *config_dir;
 static char *tmp_dir;
 static EphyProfileDirType profile_dir_type;
 
+#if HAVE_XDG_PORTAL
 static XdpPortal *global_portal;
+#endif
 
 GQuark ephy_file_helpers_error_quark;
 
@@ -499,7 +503,9 @@ ephy_file_helpers_init (const char            *profile_dir,
     }
   }
 
+#if HAVE_XDG_PORTAL
   global_portal = xdp_portal_new ();
+#endif
 
   return ret;
 }
@@ -529,7 +535,9 @@ ephy_file_helpers_shutdown (void)
     g_clear_pointer (&tmp_dir, g_free);
   }
 
+#if HAVE_XDG_PORTAL
   g_clear_object (&global_portal);
+#endif
 }
 
 /**
@@ -581,6 +589,7 @@ ephy_ensure_dir_exists (const char  *dir,
   return TRUE;
 }
 
+#if HAVE_XDG_PORTAL
 static gboolean
 launch_application (GAppInfo   *app,
                     GList      *files,
@@ -610,6 +619,8 @@ launch_application (GAppInfo   *app,
   return res;
 }
 
+#endif
+
 /**
  * ephy_file_launch_uri_handler:
  * @file: a #GFile to pass as argument
@@ -625,6 +636,7 @@ ephy_file_launch_uri_handler (GFile                        *file,
                               GdkDisplay                   *display,
                               EphyFileLaunchUriHandlerType  type)
 {
+#if HAVE_XDG_PORTAL
   g_autoptr (GAppInfo) app = NULL;
   g_autoptr (GList) list = NULL;
   g_autoptr (GError) error = NULL;
@@ -663,6 +675,15 @@ ephy_file_launch_uri_handler (GFile                        *file,
   ret = launch_application (app, list, display);
 
   return ret;
+#else
+  g_autofree char *uri = NULL;
+
+  g_return_val_if_fail (G_IS_FILE (file), FALSE);
+  uri = g_file_get_uri (file);
+  return ephy_desktop_open_uri (uri,
+                                type == EPHY_FILE_LAUNCH_URI_HANDLER_DIRECTORY,
+                                EPHY_OPEN_URI_FLAGS_NONE);
+#endif
 }
 
 gboolean
@@ -862,8 +883,10 @@ ephy_copy_directory (const char *source,
   }
 }
 
+#if HAVE_XDG_PORTAL
 XdpPortal *
 ephy_get_portal (void)
 {
   return global_portal;
 }
+#endif

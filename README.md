@@ -100,6 +100,12 @@ additional paths apply only to the invoked command. No packages are installed or
 updated. Additional formulae can be exposed through those environment variables.
 Use explicit Meson machine files instead for cross builds.
 
+Native macOS builds use AppKit and Foundation rather than libportal-gtk4.
+Opening URLs and revealing files use NSWorkspace. Native web app installation,
+launcher metadata, removal and background permission requests are not yet
+implemented on macOS. They are disabled rather than reported as successful.
+The Linux XDG portal backend is unchanged.
+
 This is dependency discovery support, not a complete macOS port. A compatible
 WebKitGTK build and all other required libraries and tools must still be
 available, and the normal Meson version checks remain in effect.

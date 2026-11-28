@@ -23,8 +23,11 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <gtk/gtk.h>
+#if HAVE_XDG_PORTAL
 #include <libportal-gtk4/portal-gtk4.h>
+#endif
 
+#include "ephy-flatpak-utils.h"
 #include "ephy-string.h"
 #include "ephy-web-app-utils.h"
 
@@ -73,6 +76,7 @@ get_launch_url (const char *desktop_path)
 static void
 test_web_app_save_url (void)
 {
+#if HAVE_XDG_PORTAL
   g_autofree char *dir = NULL;
   g_autofree char *path = NULL;
   g_autofree char *before = NULL;
@@ -124,6 +128,16 @@ test_web_app_save_url (void)
 
   g_assert_cmpint (g_unlink (path), ==, 0);
   g_assert_cmpint (g_rmdir (dir), ==, 0);
+#else
+  EphyWebApplication app = { 0 };
+  g_autoptr (GError) error = NULL;
+
+  g_assert_false (ephy_can_install_web_apps ());
+  g_assert_false (ephy_web_application_create ("unsupported", "https://example.org/", NULL,
+                                                EPHY_WEB_APPLICATION_NONE, &error));
+  g_assert_error (error, G_IO_ERROR, G_IO_ERROR_NOT_SUPPORTED);
+  g_assert_false (ephy_web_application_save (&app));
+#endif
 }
 
 int
@@ -132,8 +146,13 @@ main (int   argc,
 {
   gtk_test_init (&argc, &argv);
 
+#if HAVE_XDG_PORTAL
   g_test_add_func ("/lib/ephy-web-app-utils/save_url",
                    test_web_app_save_url);
+#else
+  g_test_add_func ("/lib/ephy-web-app-utils/native_launcher_unavailable",
+                   test_web_app_save_url);
+#endif
 
   return g_test_run ();
 }

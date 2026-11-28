@@ -33,3 +33,9 @@ void     ephy_open_directory_via_flatpak_portal          (const char       *uri,
                                                           EphyOpenUriFlags  flags);
 
 gboolean ephy_can_install_web_apps                       (void);
+
+#ifdef __APPLE__
+gboolean ephy_desktop_open_uri                            (const char       *uri,
+                                                          gboolean          reveal,
+                                                          EphyOpenUriFlags  flags);
+#endif

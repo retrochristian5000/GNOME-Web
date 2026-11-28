@@ -19,7 +19,6 @@ libephymisc_sources = [
   'ephy-favicon-helpers.c',
   'ephy-file-dialog-utils.c',
   'ephy-file-helpers.c',
-  'ephy-flatpak-utils.c',
   'ephy-json-utils.c',
   'ephy-langs.c',
   'ephy-opensearch-autodiscovery-link.c',
@@ -53,6 +52,12 @@ libephymisc_sources = [
   enums
 ]
 
+if have_xdg_portal
+  libephymisc_sources += ['ephy-flatpak-utils.c']
+else
+  libephymisc_sources += ['ephy-flatpak-utils-darwin.m']
+endif
+
 libephymisc_deps = [
   config_h,
   cairo_dep,
@@ -68,7 +73,7 @@ libephymisc_deps = [
   libsoup_dep,
   libxml_dep,
   m_dep,
-  portal_dep,
+  desktop_dep,
   sqlite3_dep,
   webkitgtk_dep
 ]

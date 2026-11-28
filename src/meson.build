@@ -141,7 +141,7 @@ libephymain_deps = [
   libarchive_dep,
   libadwaita_dep,
   libsoup_dep,
-  portal_dep,
+  desktop_dep,
   webkitgtk_dep,
 ]
 

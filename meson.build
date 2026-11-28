@@ -141,7 +141,15 @@ libsecret_dep = dependency('libsecret-1', version: '>= 0.19.0')
 libsoup_dep = dependency('libsoup-3.0', version: '>= 2.99.4')
 libxml_dep = dependency('libxml-2.0', version: '>= 2.6.12')
 nettle_dep = dependency('nettle', version: nettle_requirement)
-portal_dep = dependency('libportal-gtk4', version: '>= 0.6')
+# XDG portals require a desktop portal service, not just the client library.
+have_xdg_portal = host_machine.system() != 'darwin'
+conf.set10('HAVE_XDG_PORTAL', have_xdg_portal)
+if have_xdg_portal
+  desktop_dep = dependency('libportal-gtk4', version: '>= 0.6')
+else
+  add_languages('objc', native: false, required: true)
+  desktop_dep = dependency('appleframeworks', modules: ['AppKit', 'Foundation'])
+endif
 pwquality_dep = dependency('pwquality')
 sqlite3_dep = dependency('sqlite3', version: '>= 3.22')
 webkitgtk_dep = dependency('webkitgtk-6.0', version: webkitgtk_requirement)

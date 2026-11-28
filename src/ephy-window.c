@@ -32,7 +32,9 @@
 #include <gio/gio.h>
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
+#if HAVE_XDG_PORTAL
 #include <libportal-gtk4/portal-gtk4.h>
+#endif
 #include <webkit/webkit.h>
 
 #include "context-menu-commands.h"
@@ -716,6 +718,7 @@ notify_fullscreen_cb (EphyWindow *window)
     window->show_fullscreen_header_bar = FALSE;
 }
 
+#if HAVE_XDG_PORTAL
 static void
 on_set_background_status (GObject      *source_object,
                           GAsyncResult *res,
@@ -758,9 +761,12 @@ on_request_background (GObject      *source_object,
   xdp_portal_set_background_status (portal, status, window->cancellable, on_set_background_status, NULL);
 }
 
+#endif
+
 static gboolean
 ephy_window_close_request (GtkWindow *window)
 {
+#if HAVE_XDG_PORTAL
   if ((ephy_embed_shell_get_mode (ephy_embed_shell_get_default ()) == EPHY_EMBED_SHELL_MODE_APPLICATION) &&
       g_settings_get_boolean (EPHY_SETTINGS_WEB_APP, EPHY_PREFS_WEB_APP_RUN_IN_BACKGROUND)) {
     if (xdp_portal_running_under_sandbox ()) {
@@ -777,6 +783,8 @@ ephy_window_close_request (GtkWindow *window)
 
     return TRUE;
   }
+
+#endif
 
   if (!ephy_window_close (EPHY_WINDOW (window)))
     return TRUE;

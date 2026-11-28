@@ -25,7 +25,11 @@
 #include <gio/gio.h>
 #include <glib.h>
 #include <gtk/gtk.h>
+#include "config.h"
+
+#if HAVE_XDG_PORTAL
 #include <libportal/portal-helpers.h>
+#endif
 
 extern GQuark ephy_file_helpers_error_quark;
 #define EPHY_FILE_HELPERS_ERROR_QUARK        (ephy_file_helpers_error_quark)
@@ -83,6 +87,8 @@ gboolean           ephy_file_browse_to                      (GFile              
                                                              GdkDisplay            *display);
 void               ephy_copy_directory                      (const char            *source,
                                                              const char            *target);
+#if HAVE_XDG_PORTAL
 XdpPortal  *       ephy_get_portal                          (void);
+#endif
 
 G_END_DECLS
